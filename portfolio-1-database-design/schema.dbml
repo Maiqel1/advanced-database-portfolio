@@ -1,0 +1,301 @@
+Project tomiwa_hospitals {
+  database_type: 'PostgreSQL'
+  Note: 'Tomiwa Hospitals outpatient database: logical schema for Portfolio 1'
+}
+
+Table branch [headercolor: #1E6091] {
+  branch_id integer [pk, increment]
+  name varchar [not null, unique]
+  state varchar [not null]
+  address varchar [not null]
+  consultation_fee numeric(10,2) [not null]
+  opened_on date [not null]
+}
+
+Table staff [headercolor: #1E6091] {
+  staff_id integer [pk, increment]
+  branch_id integer [not null, ref: > branch.branch_id]
+  first_name varchar [not null]
+  last_name varchar [not null]
+  role varchar [not null, note: 'receptionist, nurse, doctor, lab_scientist, pharmacist, head_of_pharmacy or branch_manager']
+  phone varchar
+  hired_on date [not null]
+  Note: 'Columns ending in _by elsewhere record which staff member did a task. A trigger checks they hold the right role. See "Links to staff" in the Portfolio 1 README.'
+}
+
+Table patient [headercolor: #1E6091] {
+  patient_id integer [pk, increment]
+  hospital_number varchar [not null, unique]
+  first_name varchar [not null]
+  last_name varchar [not null]
+  date_of_birth date [not null]
+  sex char(1) [not null, note: 'F or M']
+  phone varchar
+  address varchar
+  registered_branch_id integer [not null, ref: > branch.branch_id]
+  registered_at timestamp [not null]
+}
+
+Table portal_account [headercolor: #1E6091] {
+  patient_id integer [pk, ref: - patient.patient_id]
+  username varchar [not null, unique]
+  password_hash varchar [not null]
+  created_at timestamp [not null]
+}
+
+Table insurer [headercolor: #1E6091] {
+  insurer_id integer [pk, increment]
+  name varchar [not null, unique]
+  phone varchar
+}
+
+Table insurance_policy [headercolor: #1E6091] {
+  policy_id integer [pk, increment]
+  patient_id integer [not null, ref: > patient.patient_id]
+  insurer_id integer [not null, ref: > insurer.insurer_id]
+  policy_number varchar [not null]
+  valid_from date [not null]
+  valid_to date [not null]
+
+  indexes {
+    (insurer_id, policy_number) [unique]
+  }
+}
+
+Table appointment [headercolor: #2D6A4F] {
+  appointment_id integer [pk, increment]
+  patient_id integer [not null, ref: > patient.patient_id]
+  doctor_id integer [not null, ref: > staff.staff_id]
+  branch_id integer [not null, ref: > branch.branch_id]
+  scheduled_for timestamp [not null]
+  booked_via varchar [not null, note: 'reception or portal']
+  booked_by integer [note: 'receptionist (staff_id); empty when booked on the portal']
+  status varchar [not null, note: 'booked, cancelled, attended or no_show']
+}
+
+Table visit [headercolor: #2D6A4F] {
+  visit_id integer [pk, increment]
+  patient_id integer [not null, ref: > patient.patient_id]
+  branch_id integer [not null, ref: > branch.branch_id]
+  doctor_id integer [not null, ref: > staff.staff_id]
+  appointment_id integer [unique, ref: - appointment.appointment_id, note: 'empty for walk-ins']
+  policy_id integer [ref: > insurance_policy.policy_id, note: 'empty for cash patients']
+  checked_in_by integer [not null, note: 'receptionist (staff_id)']
+  checked_in_at timestamp [not null]
+  status varchar [not null, note: 'checked_in, with_nurse, with_doctor, at_lab, at_pharmacy or completed']
+}
+
+Table vital_signs [headercolor: #2D6A4F] {
+  vitals_id integer [pk, increment]
+  visit_id integer [not null, ref: > visit.visit_id]
+  recorded_by integer [not null, note: 'nurse (staff_id)']
+  recorded_at timestamp [not null]
+  temperature_c numeric(4,1)
+  systolic_bp integer
+  diastolic_bp integer
+  pulse_bpm integer
+  weight_kg numeric(5,1)
+}
+
+Table clinical_note [headercolor: #2D6A4F] {
+  note_id integer [pk, increment]
+  visit_id integer [not null, ref: > visit.visit_id]
+  written_by integer [not null, note: 'doctor (staff_id)']
+  written_at timestamp [not null]
+  symptoms text
+  notes text
+}
+
+Table diagnosis_code [headercolor: #2D6A4F] {
+  icd10_code varchar [pk]
+  description varchar [not null]
+}
+
+Table diagnosis [headercolor: #2D6A4F] {
+  diagnosis_id integer [pk, increment]
+  visit_id integer [not null, ref: > visit.visit_id]
+  icd10_code varchar [not null, ref: > diagnosis_code.icd10_code]
+  made_by integer [not null, note: 'doctor (staff_id)']
+  kind varchar [not null, note: 'provisional or final']
+  made_at timestamp [not null]
+}
+
+Table lab_test [headercolor: #7B2CBF] {
+  test_id integer [pk, increment]
+  name varchar [not null, unique]
+  sample_type varchar [not null]
+  price numeric(10,2) [not null]
+}
+
+Table lab_test_parameter [headercolor: #7B2CBF] {
+  parameter_id integer [pk, increment]
+  test_id integer [not null, ref: > lab_test.test_id]
+  name varchar [not null]
+  unit varchar
+  normal_low numeric
+  normal_high numeric
+
+  indexes {
+    (test_id, parameter_id) [unique]
+  }
+}
+
+Table lab_order [headercolor: #7B2CBF] {
+  lab_order_id integer [pk, increment]
+  visit_id integer [not null, ref: > visit.visit_id]
+  ordered_by integer [not null, note: 'doctor (staff_id)']
+  ordered_at timestamp [not null]
+}
+
+Table lab_order_item [headercolor: #7B2CBF] {
+  lab_order_id integer [not null, ref: > lab_order.lab_order_id]
+  test_id integer [not null, ref: > lab_test.test_id]
+  performed_by integer [note: 'lab scientist (staff_id)']
+  completed_at timestamp [note: 'empty until the test is run']
+
+  indexes {
+    (lab_order_id, test_id) [pk]
+  }
+}
+
+Table lab_result [headercolor: #7B2CBF] {
+  lab_order_id integer [not null]
+  test_id integer [not null]
+  parameter_id integer [not null]
+  value_numeric numeric
+  value_text varchar [note: 'for non-numeric results']
+
+  indexes {
+    (lab_order_id, test_id, parameter_id) [pk]
+  }
+}
+
+Ref: lab_result.(lab_order_id, test_id) > lab_order_item.(lab_order_id, test_id)
+Ref: lab_result.(test_id, parameter_id) > lab_test_parameter.(test_id, parameter_id)
+
+Table drug [headercolor: #C1121F] {
+  drug_id integer [pk, increment]
+  name varchar [not null]
+  form varchar [not null, note: 'tablet, syrup or injection']
+  strength varchar [not null]
+  unit_price numeric(10,2) [not null, note: 'per tablet, bottle or vial']
+
+  indexes {
+    (name, form, strength) [unique]
+  }
+}
+
+Table prescription [headercolor: #C1121F] {
+  prescription_id integer [pk, increment]
+  visit_id integer [not null, ref: > visit.visit_id]
+  prescribed_by integer [not null, note: 'doctor (staff_id)']
+  prescribed_at timestamp [not null]
+}
+
+Table prescription_item [headercolor: #C1121F] {
+  prescription_id integer [not null, ref: > prescription.prescription_id]
+  drug_id integer [not null, ref: > drug.drug_id]
+  dose varchar [not null]
+  frequency varchar [not null]
+  duration_days integer [not null]
+  quantity integer [not null, note: 'in the smallest unit']
+  instructions varchar
+  dispensed_by integer [note: 'pharmacist (staff_id)']
+  dispensed_at timestamp [note: 'empty until dispensed']
+
+  indexes {
+    (prescription_id, drug_id) [pk]
+  }
+}
+
+Table branch_stock [headercolor: #C1121F] {
+  branch_id integer [not null, ref: > branch.branch_id]
+  drug_id integer [not null, ref: > drug.drug_id]
+  quantity_in_stock integer [not null, note: 'in the smallest unit']
+  reorder_level integer [not null]
+
+  indexes {
+    (branch_id, drug_id) [pk]
+  }
+}
+
+Table restock_request [headercolor: #C1121F] {
+  request_id integer [pk, increment]
+  branch_id integer [not null]
+  drug_id integer [not null]
+  quantity_requested integer [not null]
+  requested_by integer [not null, note: 'head of pharmacy (staff_id)']
+  requested_at timestamp [not null]
+  status varchar [not null, note: 'pending, approved, rejected or received']
+  reviewed_by integer [note: 'branch manager (staff_id)']
+  reviewed_at timestamp
+}
+
+Ref: restock_request.(branch_id, drug_id) > branch_stock.(branch_id, drug_id)
+
+Table charge [headercolor: #B5651D] {
+  charge_id integer [pk, increment]
+  visit_id integer [not null, ref: > visit.visit_id]
+  charge_type varchar [not null, note: 'consultation, lab_test or drug']
+  lab_order_id integer
+  test_id integer
+  prescription_id integer
+  drug_id integer
+  quantity integer [not null]
+  unit_price numeric(10,2) [not null, note: 'price at the time']
+  payment_id integer [ref: > payment.payment_id, note: 'empty until paid; insured visits are billed to the HMO']
+
+  indexes {
+    (lab_order_id, test_id) [unique]
+    (prescription_id, drug_id) [unique]
+  }
+}
+
+Ref: lab_order_item.(lab_order_id, test_id) - charge.(lab_order_id, test_id)
+Ref: prescription_item.(prescription_id, drug_id) - charge.(prescription_id, drug_id)
+
+Table payment [headercolor: #B5651D] {
+  payment_id integer [pk, increment]
+  received_by integer [not null, note: 'receptionist (staff_id)']
+  received_at timestamp [not null]
+  method varchar [not null, note: 'cash, transfer or card']
+}
+
+TableGroup people_and_places [color: #1E6091] {
+  branch
+  staff
+  patient
+  portal_account
+  insurer
+  insurance_policy
+}
+
+TableGroup visits_and_care [color: #2D6A4F] {
+  appointment
+  visit
+  vital_signs
+  clinical_note
+  diagnosis_code
+  diagnosis
+}
+
+TableGroup laboratory [color: #7B2CBF] {
+  lab_test
+  lab_test_parameter
+  lab_order
+  lab_order_item
+  lab_result
+}
+
+TableGroup pharmacy_and_stock [color: #C1121F] {
+  drug
+  prescription
+  prescription_item
+  branch_stock
+  restock_request
+}
+
+TableGroup billing [color: #B5651D] {
+  charge
+  payment
+}

@@ -1,0 +1,292 @@
+@startchen er-conceptual-1-core
+title Tomiwa Hospitals conceptual ER diagram (1 of 4): patients, staff, branches and visits
+
+entity Branch {
+  branch_id <<key>>
+  name
+  state
+}
+
+entity Staff {
+  staff_id <<key>>
+  name
+  role
+}
+
+entity Patient {
+  patient_id <<key>>
+  hospital_number
+  name {
+    first_name
+    last_name
+  }
+  date_of_birth
+  age <<derived>>
+}
+
+entity Portal_Account {
+  username <<key>>
+  created_at
+}
+
+entity Insurer {
+  insurer_id <<key>>
+  name
+}
+
+entity Insurance_Policy {
+  policy_id <<key>>
+  policy_number
+  valid_from
+  valid_to
+}
+
+entity Appointment {
+  appointment_id <<key>>
+  scheduled_for
+  status
+}
+
+entity Visit {
+  visit_id <<key>>
+  checked_in_at
+  status
+}
+
+relationship employs {
+}
+relationship registers {
+}
+relationship has {
+}
+relationship holds {
+}
+relationship underwrites {
+}
+relationship books {
+}
+relationship attends {
+}
+relationship schedules {
+}
+relationship becomes {
+}
+relationship makes {
+}
+relationship conducts {
+}
+relationship hosts {
+}
+relationship covers {
+}
+
+Branch -1- employs
+employs -N- Staff
+Branch -1- registers
+registers -N- Patient
+Patient -1- has
+has -1- Portal_Account
+Patient -1- holds
+holds -N- Insurance_Policy
+Insurer -1- underwrites
+underwrites -N- Insurance_Policy
+Patient -1- books
+books -N- Appointment
+Staff -1- attends
+attends -N- Appointment
+Branch -1- schedules
+schedules -N- Appointment
+Appointment -1- becomes
+becomes -1- Visit
+Patient -1- makes
+makes -N- Visit
+Staff -1- conducts
+conducts -N- Visit
+Branch -1- hosts
+hosts -N- Visit
+Insurance_Policy -1- covers
+covers -N- Visit
+@endchen
+
+@startchen er-conceptual-2-clinical
+title Tomiwa Hospitals conceptual ER diagram (2 of 4): clinical care
+
+entity Visit {
+}
+
+entity Vital_Signs {
+  vitals_id <<key>>
+  recorded_at
+  temperature
+  blood_pressure {
+    systolic
+    diastolic
+  }
+  pulse
+}
+
+entity Clinical_Note {
+  note_id <<key>>
+  symptoms
+  notes
+}
+
+entity Diagnosis {
+  diagnosis_id <<key>>
+  kind
+  made_at
+}
+
+entity Diagnosis_Code {
+  icd10_code <<key>>
+  description
+}
+
+relationship records {
+}
+relationship documents {
+}
+relationship yields {
+}
+relationship classifies {
+}
+
+Visit -1- records
+records -N- Vital_Signs
+Visit -1- documents
+documents -N- Clinical_Note
+Visit -1- yields
+yields -N- Diagnosis
+Diagnosis_Code -1- classifies
+classifies -N- Diagnosis
+@endchen
+
+@startchen er-conceptual-3-laboratory
+title Tomiwa Hospitals conceptual ER diagram (3 of 4): laboratory
+
+entity Visit {
+}
+
+entity Lab_Order {
+  lab_order_id <<key>>
+  ordered_at
+}
+
+entity Lab_Test {
+  test_id <<key>>
+  name
+  price
+}
+
+entity Test_Parameter {
+  parameter_id <<key>>
+  name
+  unit
+  normal_range
+}
+
+entity Lab_Result <<weak>> {
+  value
+  flag <<derived>>
+}
+
+relationship orders {
+}
+relationship includes {
+  completed_at
+}
+relationship defines {
+}
+relationship produces <<identifying>> {
+}
+relationship reports {
+}
+
+Visit -1- orders
+orders -N- Lab_Order
+Lab_Order -M- includes
+includes -N- Lab_Test
+Lab_Test -1- defines
+defines -N- Test_Parameter
+Lab_Order -1- produces
+produces =N= Lab_Result
+Test_Parameter -1- reports
+reports -N- Lab_Result
+@endchen
+
+@startchen er-conceptual-4-pharmacy-billing
+title Tomiwa Hospitals conceptual ER diagram (4 of 4): pharmacy, stock and billing
+
+entity Visit {
+}
+
+entity Branch {
+}
+
+entity Drug {
+  drug_id <<key>>
+  name
+  strength
+  unit_price
+}
+
+entity Prescription {
+  prescription_id <<key>>
+  prescribed_at
+}
+
+entity Restock_Request {
+  request_id <<key>>
+  quantity
+  status
+}
+
+entity Charge {
+  charge_id <<key>>
+  type
+  quantity
+  unit_price
+}
+
+entity Payment {
+  payment_id <<key>>
+  method
+  received_at
+}
+
+relationship issues {
+}
+relationship lists {
+  dose
+  frequency
+  duration
+  quantity
+}
+relationship stocks {
+  quantity_in_stock
+  reorder_level
+}
+relationship raises {
+}
+relationship requests {
+}
+relationship incurs {
+}
+relationship settles {
+}
+
+Visit -1- issues
+issues -N- Prescription
+Prescription -M- lists
+lists -N- Drug
+Branch -M- stocks
+stocks -N- Drug
+Branch -1- raises
+raises -N- Restock_Request
+Drug -1- requests
+requests -N- Restock_Request
+Visit -1- incurs
+incurs -N- Charge
+Payment -1- settles
+settles -N- Charge
+@endchen
