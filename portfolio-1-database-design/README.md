@@ -9,6 +9,7 @@ The design moves through the stages described in the course material: a **concep
 | [er-conceptual.puml](er-conceptual.puml) and the four `er-conceptual-*.png` images | Conceptual | Chen-notation ER diagrams, written in PlantUML |
 | [schema.dbml](schema.dbml) and [er-logical.png](er-logical.png) | Logical | All tables, columns and keys, drawn in [dbdiagram.io](https://dbdiagram.io) |
 | [er-logical-areas.md](er-logical-areas.md) and the five `er-logical-*.png` images | Logical | The same tables area by area, with each relationship labelled, written in Mermaid |
+| [normalisation.md](normalisation.md), [normalisation-demo.sql](normalisation-demo.sql) and [its output](normalisation-demo-output.txt) | Logical | How a flat visit record sheet is normalised to 3NF and BCNF, with each anomaly demonstrated in PostgreSQL |
 
 ## Conceptual ER diagram (Chen notation)
 

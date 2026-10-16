@@ -1,0 +1,155 @@
+
+================================================================
+STEP 0: the visit record sheet (unnormalised)
+================================================================
+ visit_no | visit_date | hospital_no | patient_name  | patient_phone | branch_name | branch_state |   doctor_name    |              drug_1               | price_1 | qty_1 |       drug_2       | price_2 |  qty_2  
+----------+------------+-------------+---------------+---------------+-------------+--------------+------------------+-----------------------------------+---------+-------+--------------------+---------+---------
+     5001 | 2026-10-01 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Ilorin      | Kwara        | Dr Kemi Adebayo  | Artemether/Lumefantrine 20/120 mg |  150.00 |    24 | Paracetamol 500 mg |   50.00 |      18
+     5002 | 2026-10-01 | TH-000102   | Musa Bello    | 0800 000 0102 | Ilorin      | Kwara        | Dr Kemi Adebayo  | Paracetamol 500 mg                |   50.00 |    10 | (empty)            | (empty) | (empty)
+     5003 | 2026-10-03 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf | Amoxicillin 500 mg                |  120.00 |    15 | (empty)            | (empty) | (empty)
+     5004 | 2026-10-04 | TH-000103   | Funmi Adeyemi | 0800 000 0103 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf | Artemether/Lumefantrine 20/120 mg |  150.00 |    24 | Amoxicillin 500 mg |  120.00 |      15
+(4 rows)
+
+
+================================================================
+STEP 1: first normal form (one row per drug on each visit)
+================================================================
+ visit_no | visit_date | hospital_no | patient_name  | patient_phone | branch_name | branch_state |   doctor_name    |             drug_name             | unit_price | quantity 
+----------+------------+-------------+---------------+---------------+-------------+--------------+------------------+-----------------------------------+------------+----------
+     5001 | 2026-10-01 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Ilorin      | Kwara        | Dr Kemi Adebayo  | Artemether/Lumefantrine 20/120 mg |     150.00 |       24
+     5001 | 2026-10-01 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Ilorin      | Kwara        | Dr Kemi Adebayo  | Paracetamol 500 mg                |      50.00 |       18
+     5002 | 2026-10-01 | TH-000102   | Musa Bello    | 0800 000 0102 | Ilorin      | Kwara        | Dr Kemi Adebayo  | Paracetamol 500 mg                |      50.00 |       10
+     5003 | 2026-10-03 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf | Amoxicillin 500 mg                |     120.00 |       15
+     5004 | 2026-10-04 | TH-000103   | Funmi Adeyemi | 0800 000 0103 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf | Amoxicillin 500 mg                |     120.00 |       15
+     5004 | 2026-10-04 | TH-000103   | Funmi Adeyemi | 0800 000 0103 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf | Artemether/Lumefantrine 20/120 mg |     150.00 |       24
+(6 rows)
+
+
+--- 1NF problem 1, update anomaly: Adaeze changes her phone number,
+--- but the receptionist only edits one of her three rows
+ hospital_no | patient_name  | patient_phone 
+-------------+---------------+---------------
+ TH-000101   | Adaeze Okafor | 0800 000 0101
+ TH-000101   | Adaeze Okafor | 0800 000 0999
+(2 rows)
+
+
+--- 1NF problem 2, insertion anomaly: a new patient, Chidi Eze,
+--- registers today but has no visit or prescription yet
+psql:/tmp/normalisation-demo.sql:82: ERROR:  null value in column "visit_no" of relation "visit_drug_1nf" violates not-null constraint
+DETAIL:  Failing row contains (null, null, TH-000104, Chidi Eze, 0800 000 0104, null, null, null, null, null, null).
+
+--- 1NF problem 3, deletion anomaly: deleting Musa's only visit
+--- also deletes everything the hospital knows about Musa
+ rows_still_holding_musa 
+-------------------------
+                       0
+(1 row)
+
+
+================================================================
+STEP 2: second normal form (remove partial dependencies)
+================================================================
+visit_2nf
+ visit_no | visit_date | hospital_no | patient_name  | patient_phone | branch_name | branch_state |   doctor_name    
+----------+------------+-------------+---------------+---------------+-------------+--------------+------------------
+     5001 | 2026-10-01 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Ilorin      | Kwara        | Dr Kemi Adebayo
+     5002 | 2026-10-01 | TH-000102   | Musa Bello    | 0800 000 0102 | Ilorin      | Kwara        | Dr Kemi Adebayo
+     5003 | 2026-10-03 | TH-000101   | Adaeze Okafor | 0800 000 0101 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf
+     5004 | 2026-10-04 | TH-000103   | Funmi Adeyemi | 0800 000 0103 | Lagos Ikeja | Lagos        | Dr Ibrahim Yusuf
+(4 rows)
+
+drug
+             drug_name             | unit_price 
+-----------------------------------+------------
+ Amoxicillin 500 mg                |     120.00
+ Artemether/Lumefantrine 20/120 mg |     150.00
+ Paracetamol 500 mg                |      50.00
+(3 rows)
+
+visit_drug
+ visit_no |             drug_name             | quantity 
+----------+-----------------------------------+----------
+     5001 | Artemether/Lumefantrine 20/120 mg |       24
+     5001 | Paracetamol 500 mg                |       18
+     5002 | Paracetamol 500 mg                |       10
+     5003 | Amoxicillin 500 mg                |       15
+     5004 | Amoxicillin 500 mg                |       15
+     5004 | Artemether/Lumefantrine 20/120 mg |       24
+(6 rows)
+
+
+================================================================
+STEP 3: third normal form (remove transitive dependencies)
+================================================================
+patient
+ hospital_no | patient_name  | patient_phone 
+-------------+---------------+---------------
+ TH-000101   | Adaeze Okafor | 0800 000 0101
+ TH-000102   | Musa Bello    | 0800 000 0102
+ TH-000103   | Funmi Adeyemi | 0800 000 0103
+(3 rows)
+
+branch
+ branch_name | branch_state 
+-------------+--------------
+ Ilorin      | Kwara
+ Lagos Ikeja | Lagos
+(2 rows)
+
+visit
+ visit_no | visit_date | hospital_no | branch_name |   doctor_name    
+----------+------------+-------------+-------------+------------------
+     5001 | 2026-10-01 | TH-000101   | Ilorin      | Dr Kemi Adebayo
+     5002 | 2026-10-01 | TH-000102   | Ilorin      | Dr Kemi Adebayo
+     5003 | 2026-10-03 | TH-000101   | Lagos Ikeja | Dr Ibrahim Yusuf
+     5004 | 2026-10-04 | TH-000103   | Lagos Ikeja | Dr Ibrahim Yusuf
+(4 rows)
+
+
+================================================================
+STEP 4: the same three operations on the 3NF tables
+================================================================
+
+--- Update: Adaeze's phone is changed in exactly one place
+ visit_no | patient_name  | patient_phone 
+----------+---------------+---------------
+     5001 | Adaeze Okafor | 0800 000 0999
+     5003 | Adaeze Okafor | 0800 000 0999
+(2 rows)
+
+
+--- Insertion: Chidi Eze can be registered before any visit
+ hospital_no | patient_name | patient_phone 
+-------------+--------------+---------------
+ TH-000104   | Chidi Eze    | 0800 000 0104
+(1 row)
+
+
+--- Deletion: removing Musa's visit leaves Musa's patient record
+ hospital_no | patient_name | patient_phone 
+-------------+--------------+---------------
+ TH-000102   | Musa Bello   | 0800 000 0102
+(1 row)
+
+
+================================================================
+STEP 5: nothing was lost (join the 3NF tables back together)
+================================================================
+                 measure                 | result 
+-----------------------------------------+--------
+ rows in the 1NF table                   |      6
+ rows rebuilt from the 3NF tables        |      6
+ rows in 1NF that the rebuild is missing |      0
+ rows the rebuild invented               |      0
+(4 rows)
+
+
+--- How many times each fact is stored, before and after
+          fact           | copies_in_1nf | copies_in_3nf 
+-------------------------+---------------+---------------
+ Adaeze's name and phone |             3 |             1
+ Paracetamol's price     |             2 |             1
+ Ilorin is in Kwara      |             3 |             1
+(3 rows)
+
