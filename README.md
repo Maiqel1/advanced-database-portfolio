@@ -89,6 +89,8 @@ flowchart LR
 
 - Outpatient care only. Admissions, wards and surgery are out of scope.
 - Only drug stock is tracked. Laboratory reagents and other supplies are out of scope.
+- Drug stock and dispensing are counted in the smallest unit, such as a tablet, bottle or vial.
+- Each lab measurement has one adult normal range. Ranges that vary by age or sex are out of scope.
 - Charges for insured patients are recorded and marked as billed to their HMO. Processing the claim with the HMO is out of scope.
 - Clinical records are never overwritten. A final diagnosis is added alongside the provisional one rather than replacing it.
 - Prices and insurance cover are recorded as they stood at the time of the visit, so later changes do not alter past bills.
