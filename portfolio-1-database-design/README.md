@@ -78,6 +78,83 @@ So `patient ||--o{ visit` reads: each visit belongs to exactly one patient, and 
 
 ![Logical ER diagram, billing](er-logical-5-billing.png)
 
+## Physical design: building the database
+
+Two scripts turn the design into a working PostgreSQL 16 database:
+
+| File | What it does |
+|---|---|
+| [schema.sql](schema.sql) | Creates all 24 tables in a schema called `tomiwa`, with every key, constraint and trigger |
+| [seed.sql](seed.sql) | Fills them with one year of synthetic hospital activity |
+| [seed-output.txt](seed-output.txt) | The output of a full seed run: rows loaded and time taken |
+
+### How to build it
+
+From the repository folder, in PowerShell:
+
+```powershell
+Get-Content portfolio-1-database-design/schema.sql | docker exec -i hospital-postgres psql -U hospital_admin -d hospital
+Get-Content portfolio-1-database-design/seed.sql | docker exec -i hospital-postgres psql -U hospital_admin -d hospital
+```
+
+Running `schema.sql` again wipes the `tomiwa` schema and starts afresh. For a quick, smaller build, add `-v days=30 -v patients=20000` after `psql`.
+
+The database's default search path includes `tomiwa`, so queries can name tables directly, as in `SELECT * FROM visit`.
+
+### What schema.sql enforces
+
+| Kind of rule | How many |
+|---|---|
+| Primary keys | 24 |
+| Foreign keys | 45, including 7 composite ones |
+| CHECK constraints | 38 |
+| Unique constraints | 14, plus 2 partial unique indexes (no double-booking, one consultation charge per visit) |
+| Exclusion constraints | 1 (no overlapping insurance policies) |
+| Staff-role triggers | 14, one per staff link |
+
+Two deliberate omissions:
+
+- **No ON DELETE CASCADE.** Deleting a patient or visit never silently deletes clinical records. The database refuses instead.
+- **No performance indexes yet.** PostgreSQL only creates indexes for primary keys and unique rules. Portfolio 2 adds indexes one at a time, with before-and-after timings as evidence.
+
+### What seed.sql generates
+
+The data is a snapshot taken at the end of **30 September 2026**, covering the year from 1 October 2025, plus 14 days of appointments already booked for October 2026.
+
+- **Volume:** 16 branches averaging 200 visits a day each, so about 3,200 visits a day across the group. Branches differ in size: Ikeja is the busiest and Lokoja and Minna the quietest.
+- **Patients:** 300,000 registered patients. 86% of visits are at the patient's own branch and the rest at another branch, using the same record.
+- **Clinical patterns:** malaria cases rise in the rainy season (April to October). Patients with hypertension or diabetes return regularly. About 1 in 5 suspected malaria or typhoid cases tests negative and gets a different final diagnosis, and some negative malaria tests lead to a follow-up Widal test.
+- **Money:** 30% of patients have held an HMO policy, and some policies lapse or renew during the year, so 18% of visits are paid for by insurance. Prices rose by 10% on 1 April 2026, and earlier charges keep the old price: a paracetamol tablet is charged at ₦18 before that date and ₦20 after.
+- **Synthetic throughout:** names are random combinations of common Nigerian first names and surnames, phone numbers use the 0800 prefix, password hashes are placeholders, and the HMOs are fictional.
+
+The data is loaded with **every constraint and trigger switched on**, so every row has passed every rule. A full build took 1,010 seconds (about 17 minutes) and produced a 2.4 GB database:
+
+| Table | Rows | Table | Rows |
+|---|---:|---|---:|
+| branch | 16 | lab_test | 8 |
+| staff | 464 | lab_test_parameter | 25 |
+| patient | 300,000 | lab_order | 759,285 |
+| portal_account | 65,866 | lab_order_item | 1,021,170 |
+| insurer | 6 | lab_result | 3,278,356 |
+| insurance_policy | 112,431 | drug | 18 |
+| appointment | 759,584 | prescription | 1,119,133 |
+| visit | 1,168,000 | prescription_item | 1,778,587 |
+| vital_signs | 1,261,115 | branch_stock | 288 |
+| clinical_note | 1,909,535 | restock_request | 1,771 |
+| diagnosis_code | 14 | payment | 2,498,251 |
+| diagnosis | 1,909,535 | charge | 3,967,757 |
+
+That is about **21.9 million rows** in total.
+
+The patterns above were checked against the loaded data:
+
+| Check | Result |
+|---|---|
+| Visits per branch per day | Ikeja 323, Ilorin 266, down to Minna 142 and Lokoja 141 |
+| Confirmed malaria as a share of final diagnoses | 25% each month from April to October, 13% from November to March |
+| Suspected cases that tested negative | Malaria 20.0%, typhoid 20.1% |
+| Visits that came from an appointment | 55% |
+
 ## Links to staff
 
 Every one of these columns is a foreign key to `staff.staff_id`. It records who did something, which is what makes the clinical record auditable. A trigger also checks that the staff member holds the role shown when the record is written.
@@ -104,9 +181,11 @@ Every one of these columns is a foreign key to `staff.staff_id`. It records who 
 - **Composite unique keys:** `(insurer_id, policy_number)` on insurance_policy, `(name, form, strength)` on drug, and `(test_id, parameter_id)` on lab_test_parameter.
 - **A result's measurement must belong to the ordered test.** lab_result's `(test_id, parameter_id)` refers to lab_test_parameter, so haemoglobin can never be recorded against a urinalysis.
 - **A restock request must be for a drug the branch stocks.** restock_request's `(branch_id, drug_id)` refers to branch_stock.
+- **A visit's insurance policy must belong to that visit's patient,** and so must the appointment it came from. visit's `(policy_id, patient_id)` refers to insurance_policy, and `(appointment_id, patient_id)` refers to appointment, so one patient's cover can never pay for another patient's visit.
+- **A patient cannot hold two policies covering the same day.** An exclusion constraint compares each policy's date range with the patient's other policies and rejects any overlap, so each visit has at most one policy that could have paid for it.
 - **Each charge points at exactly the right thing.** A consultation charge has no item links, a lab_test charge links only to a lab_order_item, and a drug charge links only to a prescription_item. Each item is charged at most once, and each visit has at most one consultation charge.
 - **No double-booking:** a doctor cannot have two active appointments at the same time.
-- **Value checks:** stock and quantities cannot be negative, a policy's `valid_to` is after its `valid_from`, and `role`, `status`, `kind` and similar columns only accept their listed values.
+- **Value checks:** stock and quantities cannot be negative, a policy's `valid_to` is after its `valid_from`, vital signs must be physically plausible (a temperature between 30 and 45 °C, systolic pressure above diastolic), and `role`, `status`, `kind` and similar columns only accept their listed values.
 - **Minimums of "one or more"** (an order has at least one test, a prescription at least one drug, a payment at least one charge) are met by creating the parent and its items together in one transaction.
 - **Staff roles on links:** a foreign key only proves the staff member exists. A trigger checks that they hold the role listed under [Links to staff](#links-to-staff) when the record is written. A CHECK constraint can't do this, because it cannot read the staff table. Copying the role into each table would also work, but staff could then never change role, and the trigger only checks the role *at the time*, so a nurse later promoted to doctor keeps their old records.
 

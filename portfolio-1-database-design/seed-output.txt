@@ -1,0 +1,46 @@
+Seeding 365 days of activity for 300000 patients...
+  reference data
+  patients, portal accounts and insurance
+  planning visits and appointments
+  appointments and visits
+  vital signs, notes and diagnoses
+  laboratory orders and results
+  prescriptions
+  payments and charges
+  pharmacy stock and restock requests
+  finishing
+
+Rows loaded
+     table_name     |  rows   
+--------------------+---------
+ branch             |      16
+ staff              |     464
+ patient            |  300000
+ portal_account     |   65866
+ insurer            |       6
+ insurance_policy   |  112431
+ appointment        |  759584
+ visit              | 1168000
+ vital_signs        | 1261115
+ clinical_note      | 1909535
+ diagnosis_code     |      14
+ diagnosis          | 1909535
+ lab_test           |       8
+ lab_test_parameter |      25
+ lab_order          |  759285
+ lab_order_item     | 1021170
+ lab_result         | 3278356
+ drug               |      18
+ prescription       | 1119133
+ prescription_item  | 1778587
+ branch_stock       |     288
+ restock_request    |    1771
+ payment            | 2498251
+ charge             | 3967757
+(24 rows)
+
+ seconds_taken 
+---------------
+          1010
+(1 row)
+
