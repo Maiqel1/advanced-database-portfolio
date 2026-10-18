@@ -2,7 +2,7 @@
 
 Case study: **Tomiwa Hospitals** (see the [main README](../README.md)).
 
-The design moves through the stages described in the course material: a **conceptual** model of the things the hospital cares about, then a **logical** model of tables, columns and keys.
+The design moves in stages: a **conceptual** model of the things the hospital cares about, then a **logical** model of tables, columns and keys.
 
 | File | Stage | What it is |
 |---|---|---|

@@ -184,4 +184,4 @@ Some values can always be calculated from data already held, so storing them wou
 
 ## The cost of normalising
 
-Normalising removes repetition, but answering a question now takes joins. Rebuilding one row of the original sheet joins five tables. The course material notes that over-normalising makes queries more complex. Portfolio 2 measures what those joins cost and uses indexes to keep them fast. Portfolio 4 deliberately goes the other way, storing related data together in MongoDB documents where reads matter more than avoiding repetition.
+Normalising removes repetition, but answering a question now takes joins. Rebuilding one row of the original sheet joins five tables. Taken too far, normalisation makes queries harder to write and slower to run. Portfolio 2 measures what those joins cost and uses indexes to keep them fast. Portfolio 4 deliberately goes the other way, storing related data together in MongoDB documents where reads matter more than avoiding repetition.
