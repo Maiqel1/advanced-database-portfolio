@@ -21,26 +21,26 @@ Rows loaded
  insurance_policy   |  112431
  appointment        |  759584
  visit              | 1168000
- vital_signs        | 1261115
- clinical_note      | 1909535
+ vital_signs        | 1261195
+ clinical_note      | 1909604
  diagnosis_code     |      14
- diagnosis          | 1909535
+ diagnosis          | 1909604
  lab_test           |       8
  lab_test_parameter |      25
- lab_order          |  759285
- lab_order_item     | 1021170
- lab_result         | 3278356
+ lab_order          |  759401
+ lab_order_item     | 1020620
+ lab_result         | 3275371
  drug               |      18
- prescription       | 1119133
- prescription_item  | 1778587
+ prescription       | 1119148
+ prescription_item  | 1778686
  branch_stock       |     288
- restock_request    |    1771
- payment            | 2498251
- charge             | 3967757
+ restock_request    |    1769
+ payment            | 2496828
+ charge             | 3967306
 (24 rows)
 
  seconds_taken 
 ---------------
-          1010
+          1063
 (1 row)
 

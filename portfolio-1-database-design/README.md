@@ -90,14 +90,14 @@ Two scripts turn the design into a working PostgreSQL 16 database:
 
 ### How to build it
 
-From the repository folder, in PowerShell:
+The repository is mounted read-only inside the container at `/portfolio` (see [docker-compose.yml](../docker-compose.yml)), so the scripts run with one command each, from any terminal:
 
 ```powershell
-Get-Content portfolio-1-database-design/schema.sql | docker exec -i hospital-postgres psql -U hospital_admin -d hospital
-Get-Content portfolio-1-database-design/seed.sql | docker exec -i hospital-postgres psql -U hospital_admin -d hospital
+docker exec hospital-postgres psql -U hospital_admin -d hospital -f /portfolio/portfolio-1-database-design/schema.sql
+docker exec hospital-postgres psql -U hospital_admin -d hospital -f /portfolio/portfolio-1-database-design/seed.sql
 ```
 
-Running `schema.sql` again wipes the `tomiwa` schema and starts afresh. For a quick, smaller build, add `-v days=30 -v patients=20000` after `psql`.
+Running `schema.sql` again wipes the `tomiwa` schema and starts afresh. For a quick, smaller build, add `-v days=30 -v patients=20000` after `psql` on the seed command.
 
 The database's default search path includes `tomiwa`, so queries can name tables directly, as in `SELECT * FROM visit`.
 
@@ -127,22 +127,22 @@ The data is a snapshot taken at the end of **30 September 2026**, covering the y
 - **Money:** 30% of patients have held an HMO policy, and some policies lapse or renew during the year, so 18% of visits are paid for by insurance. Prices rose by 10% on 1 April 2026, and earlier charges keep the old price: a paracetamol tablet is charged at ₦18 before that date and ₦20 after.
 - **Synthetic throughout:** names are random combinations of common Nigerian first names and surnames, phone numbers use the 0800 prefix, password hashes are placeholders, and the HMOs are fictional.
 
-The data is loaded with **every constraint and trigger switched on**, so every row has passed every rule. A full build took 1,010 seconds (about 17 minutes) and produced a 2.4 GB database:
+The data is loaded with **every constraint and trigger switched on**, so every row has passed every rule. A full build took 1,063 seconds (about 18 minutes) and produced a 2.4 GB database:
 
 | Table | Rows | Table | Rows |
 |---|---:|---|---:|
 | branch | 16 | lab_test | 8 |
 | staff | 464 | lab_test_parameter | 25 |
-| patient | 300,000 | lab_order | 759,285 |
-| portal_account | 65,866 | lab_order_item | 1,021,170 |
-| insurer | 6 | lab_result | 3,278,356 |
+| patient | 300,000 | lab_order | 759,401 |
+| portal_account | 65,866 | lab_order_item | 1,020,620 |
+| insurer | 6 | lab_result | 3,275,371 |
 | insurance_policy | 112,431 | drug | 18 |
-| appointment | 759,584 | prescription | 1,119,133 |
-| visit | 1,168,000 | prescription_item | 1,778,587 |
-| vital_signs | 1,261,115 | branch_stock | 288 |
-| clinical_note | 1,909,535 | restock_request | 1,771 |
-| diagnosis_code | 14 | payment | 2,498,251 |
-| diagnosis | 1,909,535 | charge | 3,967,757 |
+| appointment | 759,584 | prescription | 1,119,148 |
+| visit | 1,168,000 | prescription_item | 1,778,686 |
+| vital_signs | 1,261,195 | branch_stock | 288 |
+| clinical_note | 1,909,604 | restock_request | 1,769 |
+| diagnosis_code | 14 | payment | 2,496,828 |
+| diagnosis | 1,909,604 | charge | 3,967,306 |
 
 That is about **21.9 million rows** in total.
 
@@ -150,10 +150,11 @@ The patterns above were checked against the loaded data:
 
 | Check | Result |
 |---|---|
-| Visits per branch per day | Ikeja 323, Ilorin 266, down to Minna 142 and Lokoja 141 |
+| Visits per branch per day | Ikeja 321, Ilorin 266, down to Minna 142 and Lokoja 141 |
 | Confirmed malaria as a share of final diagnoses | 25% each month from April to October, 13% from November to March |
 | Suspected cases that tested negative | Malaria 20.0%, typhoid 20.1% |
 | Visits that came from an appointment | 55% |
+| Visits per patient in the year | Median 4, most 24; 2.3% of registered patients did not visit |
 
 ## Links to staff
 

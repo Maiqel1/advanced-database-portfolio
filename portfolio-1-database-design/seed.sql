@@ -60,13 +60,19 @@ INSERT INTO first_name
 SELECT 'F', ord, name FROM unnest(ARRAY[
     'Adaeze', 'Aisha', 'Amaka', 'Bisola', 'Blessing', 'Chiamaka', 'Chioma', 'Damilola', 'Ebun', 'Esther',
     'Fatima', 'Folake', 'Funmilayo', 'Grace', 'Hadiza', 'Halima', 'Ifeoma', 'Joy', 'Kemi', 'Mercy',
-    'Ngozi', 'Nkechi', 'Precious', 'Ruth', 'Simisola', 'Temitope', 'Titilayo', 'Yetunde', 'Zainab', 'Hauwa'
+    'Ngozi', 'Nkechi', 'Precious', 'Ruth', 'Simisola', 'Temitope', 'Titilayo', 'Yetunde', 'Zainab', 'Hauwa',
+    'Abimbola', 'Adenike', 'Adunni', 'Amina', 'Asabe', 'Bukola', 'Chinyere', 'Ebere', 'Eniola', 'Folasade',
+    'Gift', 'Ijeoma', 'Jumoke', 'Kehinde', 'Ladi', 'Lami', 'Lola', 'Maryam', 'Modupe', 'Nneka',
+    'Obiageli', 'Oluchi', 'Omolara', 'Patience', 'Ronke', 'Rukayat', 'Salamatu', 'Ufuoma', 'Uzoma', 'Victoria'
 ]) WITH ORDINALITY AS t (name, ord)
 UNION ALL
 SELECT 'M', ord, name FROM unnest(ARRAY[
     'Abdullahi', 'Adebayo', 'Ahmed', 'Babajide', 'Babatunde', 'Chidi', 'Daniel', 'David', 'Emeka', 'Femi',
     'Godwin', 'Ibrahim', 'Ikenna', 'Joseph', 'Kayode', 'Kelechi', 'Musa', 'Nnamdi', 'Obinna', 'Olumide',
-    'Samuel', 'Sani', 'Segun', 'Suleiman', 'Tobi', 'Tunde', 'Uche', 'Usman', 'Yusuf', 'Ahmadu'
+    'Samuel', 'Sani', 'Segun', 'Suleiman', 'Tobi', 'Tunde', 'Uche', 'Usman', 'Yusuf', 'Ahmadu',
+    'Abiodun', 'Adamu', 'Akin', 'Ayodele', 'Bashir', 'Chukwuemeka', 'Damola', 'Ebuka', 'Ekene', 'Gbenga',
+    'Hassan', 'Idris', 'Ifeanyi', 'Jide', 'Kunle', 'Lanre', 'Mohammed', 'Nasir', 'Olusegun', 'Onyekachi',
+    'Peter', 'Rotimi', 'Shehu', 'Tochukwu', 'Umar', 'Victor', 'Wale', 'Yakubu', 'Zubairu', 'Emmanuel'
 ]) WITH ORDINALITY AS t (name, ord);
 
 CREATE TEMP TABLE last_name AS
@@ -74,7 +80,11 @@ SELECT ord AS idx, name FROM unnest(ARRAY[
     'Abubakar', 'Adebayo', 'Adeleke', 'Adeyemi', 'Afolabi', 'Akinola', 'Aliyu', 'Balogun', 'Bello', 'Chukwu',
     'Danjuma', 'Ekwueme', 'Eze', 'Ibrahim', 'Igwe', 'Lawal', 'Mohammed', 'Musa', 'Nnadi', 'Nwachukwu',
     'Nwosu', 'Obi', 'Odunsi', 'Ogunleye', 'Okafor', 'Okeke', 'Okonkwo', 'Oladipo', 'Olaniyan', 'Onyeka',
-    'Oyelaran', 'Popoola', 'Salami', 'Sanni', 'Suleiman', 'Tijani', 'Umar', 'Usman', 'Uzor', 'Yusuf'
+    'Oyelaran', 'Popoola', 'Salami', 'Sanni', 'Suleiman', 'Tijani', 'Umar', 'Usman', 'Uzor', 'Yusuf',
+    'Adekunle', 'Adewale', 'Agbaje', 'Ajayi', 'Akande', 'Akpan', 'Amadi', 'Anyanwu', 'Babatunde', 'Bakare',
+    'Dike', 'Ebo', 'Effiong', 'Ekpo', 'Emenike', 'Etim', 'Fasanya', 'Gambo', 'Garba', 'Hassan',
+    'Idowu', 'Iroha', 'Jibrin', 'Kalu', 'Mamman', 'Nduka', 'Nwankwo', 'Obasi', 'Ogundipe', 'Ojo',
+    'Okoro', 'Olawale', 'Onuoha', 'Orji', 'Owolabi', 'Raji', 'Shittu', 'Ugwu', 'Yakubu', 'Zubair'
 ]) WITH ORDINALITY AS t (name, ord);
 
 CREATE TEMP TABLE staff_slot AS
@@ -99,8 +109,8 @@ SELECT (x.branch_id - 1) * 29 + x.k, x.branch_id, fn.name, ln.name, x.role,
        x.opened_on + floor(x.r_hire * (date '2025-09-01' - x.opened_on))::int
 FROM x
 JOIN first_name fn ON fn.sex = CASE WHEN x.r_sex < 0.5 THEN 'F' ELSE 'M' END
-                  AND fn.idx = 1 + floor(x.r_fn * 30)::int
-JOIN last_name ln ON ln.idx = 1 + floor(x.r_ln * 40)::int;
+                  AND fn.idx = 1 + floor(x.r_fn * 60)::int
+JOIN last_name ln ON ln.idx = 1 + floor(x.r_ln * 80)::int;
 
 INSERT INTO insurer (insurer_id, name, phone) VALUES
     (1, 'Harmattan Health HMO', '0800 100 0001'),
@@ -323,8 +333,8 @@ CROSS JOIN LATERAL (
                                      ELSE 12 + x.r_age * 73 END * 365.25)::int AS d
 ) AS dob
 CROSS JOIN LATERAL (SELECT greatest(b.opened_on, dob.d)::timestamp + interval '8 hours' AS start_at) AS reg
-JOIN first_name fn ON fn.sex = sx.s AND fn.idx = 1 + floor(x.r_fn * 30)::int
-JOIN last_name ln ON ln.idx = 1 + floor(x.r_ln * 40)::int;
+JOIN first_name fn ON fn.sex = sx.s AND fn.idx = 1 + floor(x.r_fn * 60)::int
+JOIN last_name ln ON ln.idx = 1 + floor(x.r_ln * 80)::int;
 
 INSERT INTO portal_account (patient_id, username, password_hash, created_at)
 SELECT patient_id,
@@ -360,7 +370,7 @@ WHERE renews;
 CREATE TEMP TABLE plan_raw AS
 SELECT g AS row_id,
        g > :days * 3200 AS is_ghost,
-       1 + floor(:patients * power(random(), 1.6))::int AS patient_id,
+       1 + floor(:patients * power(random(), 1.15))::int AS patient_id,
        random() AS r_day, random() AS r_keep, random() AS r_branch, random() AS r_time,
        random() AS r_appt, random() AS r_doctor, random() AS r_chronic, random() AS r_malaria,
        random() AS r_cond, random() AS r_confirm, random() AS r_ghost, random() AS r_via,
