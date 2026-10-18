@@ -1,0 +1,1163 @@
+################################################################
+PORTFOLIO 2 BENCHMARK: Tomiwa Hospitals query optimisation
+################################################################
+                                                       version                                                        
+----------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+ visits  
+---------
+ 1168000
+(1 row)
+
+
+=== Resetting to the Portfolio 1 baseline (no Portfolio 2 indexes or views)
+
+=== Inputs chosen from the data
+  patient   | visits_in_year | name_searched | lab_report_visit |           day_list            |     branch_day     
+------------+----------------+---------------+------------------+-------------------------------+--------------------
+ TH-0000001 |             24 | ladi onuoha   |          1124722 | doctor 32, Ikeja, 15 Sep 2026 | Ikeja, 15 Sep 2026
+(1 row)
+
+
+################################################################
+PART 1: THE QUERIES AND THEIR RESULTS
+################################################################
+                   Query                    
+--------------------------------------------
+ Q1: Patient history (doctor and reception)
+(1 row)
+
+       checked_in_at        |          branch           |      doctor       | icd10_code |                              description                               
+----------------------------+---------------------------+-------------------+------------+------------------------------------------------------------------------
+ 2026-09-17 10:24:51.669009 | Tomiwa Hospitals Ibadan   | Shehu Fasanya     | Z00.0      | General medical examination
+ 2026-09-02 09:24:42.017385 | Tomiwa Hospitals Ibadan   | Shehu Fasanya     | N39.0      | Urinary tract infection, site not specified
+ 2026-08-13 10:44:45.434499 | Tomiwa Hospitals Ibadan   | Adunni Ojo        | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2026-07-26 13:04:10.062039 | Tomiwa Hospitals Ibadan   | Wale Iroha        | J06.9      | Acute upper respiratory infection, unspecified
+ 2026-07-16 11:56:43.080891 | Tomiwa Hospitals Ibadan   | Tunde Nduka       | J06.9      | Acute upper respiratory infection, unspecified
+ 2026-06-25 17:19:54.413323 | Tomiwa Hospitals Awka     | Precious Mohammed | E11.9      | Type 2 diabetes mellitus without complications
+ 2026-06-24 10:10:19.280978 | Tomiwa Hospitals Ibadan   | Onyekachi Musa    | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2026-06-18 10:44:58.951329 | Tomiwa Hospitals Abeokuta | Maryam Bakare     | N39.0      | Urinary tract infection, site not specified
+ 2026-05-07 09:26:14.999051 | Tomiwa Hospitals Awka     | Rukayat Aliyu     | E11.9      | Type 2 diabetes mellitus without complications
+ 2026-05-06 08:48:36.518187 | Tomiwa Hospitals Ibadan   | Adunni Ojo        | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2026-04-21 11:24:15.599395 | Tomiwa Hospitals Ibadan   | Adunni Ojo        | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2026-04-08 11:25:18.173431 | Tomiwa Hospitals Ibadan   | Shehu Fasanya     | J06.9      | Acute upper respiratory infection, unspecified
+ 2026-02-19 08:17:12.381285 | Tomiwa Hospitals Ibadan   | Wale Adeyemi      | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2026-02-17 10:33:10.801237 | Tomiwa Hospitals Ibadan   | Adunni Ojo        | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2026-02-01 11:45:12.17816  | Tomiwa Hospitals Ibadan   | Tunde Nduka       | D64.9      | Anaemia, unspecified
+ 2026-01-29 09:16:28.615756 | Tomiwa Hospitals Ibadan   | Ebuka Emenike     | K29.7      | Gastritis, unspecified
+ 2026-01-17 13:50:10.028746 | Tomiwa Hospitals Ibadan   | Wale Adeyemi      | J06.9      | Acute upper respiratory infection, unspecified
+ 2026-01-01 11:21:21.029049 | Tomiwa Hospitals Ibadan   | Ebuka Emenike     | B50.9      | Plasmodium falciparum malaria, unspecified
+ 2025-11-27 09:58:16.842453 | Tomiwa Hospitals Ibadan   | Shehu Fasanya     | R30.0      | Dysuria
+ 2025-11-02 09:17:54.475249 | Tomiwa Hospitals Lokoja   | Tochukwu Effiong  | N39.0      | Urinary tract infection, site not specified
+ 2025-10-30 09:40:21.757999 | Tomiwa Hospitals Ibadan   | Tunde Nduka       | M54.5      | Low back pain
+ 2025-10-13 15:32:46.187301 | Tomiwa Hospitals Ibadan   | Wale Adeyemi      | M54.5      | Low back pain
+ 2025-10-10 09:12:22.158578 | Tomiwa Hospitals Ibadan   | Ebuka Emenike     | A09        | Other gastroenteritis and colitis of infectious and unspecified origin
+ 2025-10-06 17:13:07.939834 | Tomiwa Hospitals Ibadan   | Tunde Nduka       | M54.5      | Low back pain
+(24 rows)
+
+                 Query                 
+---------------------------------------
+ Q2: Doctor's day list (doctor portal)
+(1 row)
+
+    scheduled_for    | hospital_number |      patient       |  status  
+---------------------+-----------------+--------------------+----------
+ 2026-09-15 08:00:00 | TH-0254017      | Obinna Akinola     | attended
+ 2026-09-15 08:15:00 | TH-0078850      | Funmilayo Olaniyan | attended
+ 2026-09-15 08:30:00 | TH-0242543      | Adamu Jibrin       | no_show
+ 2026-09-15 08:45:00 | TH-0164279      | Bisola Salami      | attended
+ 2026-09-15 09:00:00 | TH-0295349      | Kehinde Obi        | attended
+ 2026-09-15 09:15:00 | TH-0267940      | Modupe Chukwu      | no_show
+ 2026-09-15 09:30:00 | TH-0058320      | Ruth Obasi         | attended
+ 2026-09-15 09:45:00 | TH-0027106      | Lami Obi           | attended
+ 2026-09-15 10:00:00 | TH-0046360      | Ahmed Popoola      | attended
+ 2026-09-15 10:15:00 | TH-0019735      | Fatima Adewale     | attended
+ 2026-09-15 10:30:00 | TH-0134832      | Ufuoma Ekpo        | attended
+ 2026-09-15 10:45:00 | TH-0018818      | Tobi Emenike       | attended
+ 2026-09-15 11:00:00 | TH-0049211      | Joy Dike           | attended
+ 2026-09-15 11:15:00 | TH-0020031      | Peter Oyelaran     | no_show
+ 2026-09-15 11:30:00 | TH-0034091      | Maryam Okeke       | attended
+ 2026-09-15 11:45:00 | TH-0097185      | Jide Babatunde     | attended
+ 2026-09-15 12:00:00 | TH-0211976      | Wale Akande        | attended
+ 2026-09-15 12:15:00 | TH-0105675      | Jumoke Usman       | no_show
+ 2026-09-15 12:30:00 | TH-0026725      | Obinna Akpan       | attended
+ 2026-09-15 12:45:00 | TH-0228853      | Kunle Jibrin       | no_show
+ 2026-09-15 13:00:00 | TH-0039919      | Ahmed Amadi        | no_show
+ 2026-09-15 13:15:00 | TH-0047009      | Yetunde Umar       | attended
+ 2026-09-15 13:30:00 | TH-0001233      | Victor Odunsi      | attended
+ 2026-09-15 13:45:00 | TH-0297153      | Samuel Agbaje      | attended
+ 2026-09-15 14:00:00 | TH-0265962      | Bisola Raji        | attended
+ 2026-09-15 14:15:00 | TH-0122825      | Hassan Akinola     | attended
+(26 rows)
+
+                    Query                     
+----------------------------------------------
+ Q3: Lab report for one visit (doctor review)
+(1 row)
+
+          test          |    measurement     |  result  |  unit   |  normal_range  |  flag  
+------------------------+--------------------+----------+---------+----------------+--------
+ Fasting blood sugar    | Glucose (fasting)  | 3.9      | mmol/L  | 3.9 to 5.6     | (none)
+ Full blood count (FBC) | Haemoglobin        | 12.5     | g/dL    | 12 to 16       | (none)
+ Full blood count (FBC) | White blood cells  | 10.6     | x10^9/L | 4 to 11        | (none)
+ Full blood count (FBC) | Platelets          | 312.6    | x10^9/L | 150 to 400     | (none)
+ Full blood count (FBC) | Packed cell volume | 38.9     | %       | 36 to 48       | (none)
+ Full blood count (FBC) | Neutrophils        | 36.7     | %       | 40 to 75       | LOW
+ Full blood count (FBC) | Lymphocytes        | 33.9     | %       | 20 to 45       | (none)
+ Urinalysis             | Urine protein      | Negative | (none)  | (none)         | (none)
+ Urinalysis             | Urine glucose      | Negative | (none)  | (none)         | (none)
+ Urinalysis             | Urine leucocytes   | Negative | (none)  | (none)         | (none)
+ Urinalysis             | Urine nitrites     | Negative | (none)  | (none)         | (none)
+ Urinalysis             | Urine pH           | 6.2      | (none)  | 4.5 to 8.0     | (none)
+ Urinalysis             | Specific gravity   | 1.021    | (none)  | 1.005 to 1.030 | (none)
+(13 rows)
+
+                        Query                         
+------------------------------------------------------
+ Q4: Daily takings by payment method (branch manager)
+(1 row)
+
+  method  | payments |   amount   
+----------+----------+------------
+ card     |      154 |  999010.00
+ cash     |      299 | 1573985.00
+ transfer |      296 | 1836700.00
+(3 rows)
+
+                         Query                         
+-------------------------------------------------------
+ Q5: Attendance by hour at one branch (branch manager)
+(1 row)
+
+ hour | visits 
+------+--------
+    7 |     10
+    8 |     47
+    9 |     34
+   10 |     44
+   11 |     51
+   12 |     46
+   13 |     42
+   14 |     12
+   15 |     15
+   16 |     13
+   17 |      7
+(11 rows)
+
+                 Query                  
+----------------------------------------
+ Q6: Find a patient by name (reception)
+(1 row)
+
+ patient_id | hospital_number | first_name | last_name | date_of_birth |     phone     
+------------+-----------------+------------+-----------+---------------+---------------
+          1 | TH-0000001      | Ladi       | Onuoha    | 2004-12-18    | 0800 936 7322
+       3234 | TH-0003234      | Ladi       | Onuoha    | 1993-04-11    | 0800 118 2640
+       8562 | TH-0008562      | Ladi       | Onuoha    | 2012-04-17    | 0800 260 5431
+      12140 | TH-0012140      | Ladi       | Onuoha    | 1949-05-31    | 0800 425 7633
+      21433 | TH-0021433      | Ladi       | Onuoha    | 1951-03-29    | 0800 164 7558
+      22683 | TH-0022683      | Ladi       | Onuoha    | 1989-08-16    | 0800 904 4597
+      34147 | TH-0034147      | Ladi       | Onuoha    | 2024-09-04    | 0800 900 4748
+      36604 | TH-0036604      | Ladi       | Onuoha    | 1957-11-25    | 0800 387 5010
+      43506 | TH-0043506      | Ladi       | Onuoha    | 1963-02-01    | 0800 465 7875
+      44900 | TH-0044900      | Ladi       | Onuoha    | 1997-02-27    | 0800 914 4287
+      45159 | TH-0045159      | Ladi       | Onuoha    | 1970-01-25    | 0800 814 6606
+      46043 | TH-0046043      | Ladi       | Onuoha    | 1953-01-26    | 0800 238 7041
+      62992 | TH-0062992      | Ladi       | Onuoha    | 1953-07-26    | 0800 228 2625
+      74014 | TH-0074014      | Ladi       | Onuoha    | 1962-11-16    | 0800 327 0058
+      74921 | TH-0074921      | Ladi       | Onuoha    | 1988-01-06    | 0800 147 2486
+      85625 | TH-0085625      | Ladi       | Onuoha    | 2021-02-21    | 0800 256 9599
+      92146 | TH-0092146      | Ladi       | Onuoha    | 1987-04-19    | 0800 447 8856
+      97147 | TH-0097147      | Ladi       | Onuoha    | 1985-05-06    | 0800 743 0529
+     109024 | TH-0109024      | Ladi       | Onuoha    | 2023-07-16    | 0800 380 9689
+     121203 | TH-0121203      | Ladi       | Onuoha    | 1983-01-17    | 0800 960 7809
+     124529 | TH-0124529      | Ladi       | Onuoha    | 2011-10-15    | 0800 731 7833
+     128552 | TH-0128552      | Ladi       | Onuoha    | 2014-11-29    | 0800 943 9309
+     133288 | TH-0133288      | Ladi       | Onuoha    | 2016-10-21    | 0800 285 8309
+     144806 | TH-0144806      | Ladi       | Onuoha    | 2001-09-21    | 0800 275 2390
+     145980 | TH-0145980      | Ladi       | Onuoha    | 1989-04-02    | 0800 022 0050
+     152890 | TH-0152890      | Ladi       | Onuoha    | 1960-07-16    | 0800 849 7943
+     159790 | TH-0159790      | Ladi       | Onuoha    | 1949-03-09    | 0800 399 7731
+     169139 | TH-0169139      | Ladi       | Onuoha    | 2006-10-12    | 0800 422 3215
+     191490 | TH-0191490      | Ladi       | Onuoha    | 1984-05-01    | 0800 470 1205
+     209793 | TH-0209793      | Ladi       | Onuoha    | 1954-11-25    | 0800 293 3130
+     212693 | TH-0212693      | Ladi       | Onuoha    | 2011-06-06    | 0800 451 4370
+     219104 | TH-0219104      | Ladi       | Onuoha    | 2020-08-07    | 0800 279 2345
+     228977 | TH-0228977      | Ladi       | Onuoha    | 2014-02-12    | 0800 722 0521
+     248018 | TH-0248018      | Ladi       | Onuoha    | 1996-12-14    | 0800 644 8890
+     264667 | TH-0264667      | Ladi       | Onuoha    | 1992-03-15    | 0800 068 5894
+     275520 | TH-0275520      | Ladi       | Onuoha    | 2014-08-15    | 0800 104 4276
+(36 rows)
+
+                           Query                           
+-----------------------------------------------------------
+ Q7: Confirmed malaria per state per month (public health)
+(1 row)
+
+ state  |   month    | cases 
+--------+------------+-------
+ Edo    | 2025-10-01 |  1596
+ Edo    | 2026-04-01 |  1553
+ Edo    | 2026-05-01 |  1566
+ Edo    | 2026-08-01 |  1608
+ Edo    | 2026-09-01 |  1538
+ Enugu  | 2026-04-01 |  1528
+ Enugu  | 2026-06-01 |  1543
+ Enugu  | 2026-07-01 |  1607
+ Enugu  | 2026-08-01 |  1640
+ Enugu  | 2026-09-01 |  1508
+ Kaduna | 2025-10-01 |  1642
+ Kaduna | 2026-04-01 |  1538
+ Kaduna | 2026-05-01 |  1556
+ Kaduna | 2026-07-01 |  1609
+ Kaduna | 2026-08-01 |  1571
+ Kano   | 2025-10-01 |  1900
+ Kano   | 2026-04-01 |  1792
+ Kano   | 2026-05-01 |  1849
+ Kano   | 2026-06-01 |  1841
+ Kano   | 2026-07-01 |  1865
+ Kano   | 2026-08-01 |  1930
+ Kano   | 2026-09-01 |  1808
+ Kwara  | 2025-10-01 |  2106
+ Kwara  | 2026-04-01 |  1897
+ Kwara  | 2026-05-01 |  2034
+ Kwara  | 2026-06-01 |  2030
+ Kwara  | 2026-07-01 |  2117
+ Kwara  | 2026-08-01 |  2055
+ Kwara  | 2026-09-01 |  2039
+ Lagos  | 2025-10-01 |  2490
+ Lagos  | 2026-04-01 |  2496
+ Lagos  | 2026-05-01 |  2488
+ Lagos  | 2026-06-01 |  2386
+ Lagos  | 2026-07-01 |  2566
+ Lagos  | 2026-08-01 |  2452
+ Lagos  | 2026-09-01 |  2454
+ Oyo    | 2025-10-01 |  1823
+ Oyo    | 2026-04-01 |  1846
+ Oyo    | 2026-05-01 |  1952
+ Oyo    | 2026-06-01 |  1855
+ Oyo    | 2026-07-01 |  1860
+ Oyo    | 2026-08-01 |  2005
+ Oyo    | 2026-09-01 |  1844
+ Rivers | 2025-10-01 |  1900
+ Rivers | 2026-04-01 |  1818
+ Rivers | 2026-05-01 |  1898
+ Rivers | 2026-06-01 |  1775
+ Rivers | 2026-07-01 |  1905
+ Rivers | 2026-08-01 |  1819
+ Rivers | 2026-09-01 |  1853
+(50 rows)
+
+                      Query                       
+--------------------------------------------------
+ Q8: Drugs below reorder level (head of pharmacy)
+(1 row)
+
+             branch             |            drug             |  strength   | quantity_in_stock | reorder_level 
+--------------------------------+-----------------------------+-------------+-------------------+---------------
+ Tomiwa Hospitals Abeokuta      | Ferrous sulphate            | 200 mg      |              4001 |          6049
+ Tomiwa Hospitals Abeokuta      | Loratadine                  | 10 mg       |               937 |           981
+ Tomiwa Hospitals Abeokuta      | Metronidazole               | 400 mg      |              1618 |          1720
+ Tomiwa Hospitals Abeokuta      | Nitrofurantoin              | 100 mg      |               857 |          2769
+ Tomiwa Hospitals Abeokuta      | Omeprazole                  | 20 mg       |               894 |          2161
+ Tomiwa Hospitals Abeokuta      | Oral rehydration salts      | 20.5 g      |              1109 |          1222
+ Tomiwa Hospitals Abeokuta      | Zinc sulphate               | 20 mg       |               379 |           414
+ Tomiwa Hospitals Akure         | Amoxicillin/Clavulanic acid | 625 mg      |               265 |           502
+ Tomiwa Hospitals Akure         | Ciprofloxacin               | 500 mg      |               942 |          1508
+ Tomiwa Hospitals Akure         | Metronidazole               | 400 mg      |               711 |          1556
+ Tomiwa Hospitals Asaba         | Ibuprofen                   | 400 mg      |              1318 |          1333
+ Tomiwa Hospitals Asaba         | Paracetamol                 | 120 mg/5 mL |               322 |           342
+ Tomiwa Hospitals Asaba         | Paracetamol                 | 500 mg      |              5387 |         15675
+ Tomiwa Hospitals Awka          | Amoxicillin                 | 500 mg      |                87 |           147
+ Tomiwa Hospitals Awka          | Ibuprofen                   | 400 mg      |              1101 |          1326
+ Tomiwa Hospitals Awka          | Loratadine                  | 10 mg       |               480 |           853
+ Tomiwa Hospitals Awka          | Metformin                   | 500 mg      |              2845 |         12339
+ Tomiwa Hospitals Awka          | Oral rehydration salts      | 20.5 g      |               417 |          1126
+ Tomiwa Hospitals Benin City    | Amoxicillin                 | 500 mg      |                98 |           184
+ Tomiwa Hospitals Benin City    | Amoxicillin/Clavulanic acid | 625 mg      |               535 |           647
+ Tomiwa Hospitals Benin City    | Ciprofloxacin               | 500 mg      |              1421 |          1950
+ Tomiwa Hospitals Benin City    | Ferrous sulphate            | 200 mg      |              3484 |          6863
+ Tomiwa Hospitals Benin City    | Folic acid                  | 5 mg        |              3425 |          3432
+ Tomiwa Hospitals Benin City    | Metformin                   | 500 mg      |              7730 |         15448
+ Tomiwa Hospitals Benin City    | Nitrofurantoin              | 100 mg      |              2344 |          3204
+ Tomiwa Hospitals Benin City    | Omeprazole                  | 20 mg       |              1254 |          2419
+ Tomiwa Hospitals Benin City    | Oral rehydration salts      | 20.5 g      |               559 |          1369
+ Tomiwa Hospitals Enugu         | Ibuprofen                   | 400 mg      |              1394 |          1622
+ Tomiwa Hospitals Enugu         | Paracetamol                 | 120 mg/5 mL |               217 |           421
+ Tomiwa Hospitals Enugu         | Vitamin C                   | 100 mg      |              1787 |          4371
+ Tomiwa Hospitals Enugu         | Zinc sulphate               | 20 mg       |               377 |           494
+ Tomiwa Hospitals Ibadan        | Amlodipine                  | 5 mg        |              7885 |         12552
+ Tomiwa Hospitals Ibadan        | Artemether/Lumefantrine     | 20/120 mg   |              6136 |         16047
+ Tomiwa Hospitals Ibadan        | Ciprofloxacin               | 500 mg      |              2130 |          2300
+ Tomiwa Hospitals Ibadan        | Oral rehydration salts      | 20.5 g      |               505 |          1721
+ Tomiwa Hospitals Ibadan        | Zinc sulphate               | 20 mg       |               552 |           617
+ Tomiwa Hospitals Ikeja         | Artemether/Lumefantrine     | 20/120 mg   |             13552 |         20943
+ Tomiwa Hospitals Ikeja         | Ciprofloxacin               | 500 mg      |              1477 |          2954
+ Tomiwa Hospitals Ikeja         | Ferrous sulphate            | 200 mg      |              8526 |         10554
+ Tomiwa Hospitals Ikeja         | Ibuprofen                   | 400 mg      |              2428 |          2699
+ Tomiwa Hospitals Ikeja         | Metronidazole               | 400 mg      |              2185 |          3003
+ Tomiwa Hospitals Ikeja         | Oral rehydration salts      | 20.5 g      |              2137 |          2188
+ Tomiwa Hospitals Ikeja         | Zinc sulphate               | 20 mg       |               226 |           779
+ Tomiwa Hospitals Ilorin        | Ibuprofen                   | 400 mg      |               747 |          2266
+ Tomiwa Hospitals Ilorin        | Metformin                   | 500 mg      |             15781 |         19882
+ Tomiwa Hospitals Ilorin        | Oral rehydration salts      | 20.5 g      |               712 |          1813
+ Tomiwa Hospitals Jos           | Amoxicillin                 | 500 mg      |                99 |           142
+ Tomiwa Hospitals Jos           | Amoxicillin/Clavulanic acid | 625 mg      |               323 |           487
+ Tomiwa Hospitals Jos           | Artemether/Lumefantrine     | 20/120 mg   |              7018 |         10546
+ Tomiwa Hospitals Jos           | Metformin                   | 500 mg      |              5087 |         12420
+ Tomiwa Hospitals Jos           | Metronidazole               | 400 mg      |               390 |          1553
+ Tomiwa Hospitals Jos           | Nitrofurantoin              | 100 mg      |               982 |          2529
+ Tomiwa Hospitals Kaduna        | Amoxicillin/Clavulanic acid | 625 mg      |               341 |           639
+ Tomiwa Hospitals Kaduna        | Ibuprofen                   | 400 mg      |              1558 |          1634
+ Tomiwa Hospitals Kaduna        | Metronidazole               | 400 mg      |              1710 |          1844
+ Tomiwa Hospitals Kaduna        | Vitamin C                   | 100 mg      |              3168 |          4481
+ Tomiwa Hospitals Kano          | Ibuprofen                   | 400 mg      |               906 |          1972
+ Tomiwa Hospitals Kano          | Metronidazole               | 400 mg      |               580 |          2287
+ Tomiwa Hospitals Kano          | Oral rehydration salts      | 20.5 g      |               716 |          1659
+ Tomiwa Hospitals Lokoja        | Ferrous sulphate            | 200 mg      |              4554 |          4690
+ Tomiwa Hospitals Lokoja        | Loratadine                  | 10 mg       |               246 |           751
+ Tomiwa Hospitals Lokoja        | Zinc sulphate               | 20 mg       |               108 |           344
+ Tomiwa Hospitals Minna         | Folic acid                  | 5 mg        |              1177 |          2406
+ Tomiwa Hospitals Minna         | Ibuprofen                   | 400 mg      |               989 |          1136
+ Tomiwa Hospitals Minna         | Loratadine                  | 10 mg       |               757 |           763
+ Tomiwa Hospitals Minna         | Metronidazole               | 400 mg      |               598 |          1359
+ Tomiwa Hospitals Minna         | Omeprazole                  | 20 mg       |               738 |          1678
+ Tomiwa Hospitals Osogbo        | Amoxicillin/Clavulanic acid | 625 mg      |               133 |           490
+ Tomiwa Hospitals Osogbo        | Ciprofloxacin               | 500 mg      |               584 |          1538
+ Tomiwa Hospitals Osogbo        | Folic acid                  | 5 mg        |               798 |          2705
+ Tomiwa Hospitals Osogbo        | Paracetamol                 | 120 mg/5 mL |               156 |           339
+ Tomiwa Hospitals Osogbo        | Vitamin C                   | 100 mg      |              2902 |          3589
+ Tomiwa Hospitals Osogbo        | Zinc sulphate               | 20 mg       |               135 |           401
+ Tomiwa Hospitals Port Harcourt | Artemether/Lumefantrine     | 20/120 mg   |              4588 |         15654
+ Tomiwa Hospitals Port Harcourt | Oral rehydration salts      | 20.5 g      |              1227 |          1652
+ Tomiwa Hospitals Port Harcourt | Vitamin C                   | 100 mg      |              4956 |          5412
+(76 rows)
+
+
+################################################################
+PART 2: BEFORE OPTIMISATION (Portfolio 1 baseline)
+################################################################
+Warming the cache with one run of each query...
+ warmed 
+--------
+      8
+(1 row)
+
+                Plan before                 
+--------------------------------------------
+ Q1: Patient history (doctor and reception)
+(1 row)
+
+                                                                                         QUERY PLAN                                                                                          
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=46690.95..46690.96 rows=4 width=100) (actual time=597.360..601.854 rows=24 loops=1)
+   Sort Key: v.checked_in_at DESC
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=3932 read=24119
+   ->  Gather  (cost=19195.69..46690.91 rows=4 width=100) (actual time=406.845..601.816 rows=24 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=3932 read=24119
+         ->  Nested Loop Left Join  (cost=18195.69..45690.51 rows=2 width=100) (actual time=269.712..574.927 rows=8 loops=3)
+               Buffers: shared hit=3932 read=24119
+               ->  Parallel Hash Right Join  (cost=18195.55..45690.19 rows=2 width=49) (actual time=269.640..574.664 rows=8 loops=3)
+                     Hash Cond: (d.visit_id = v.visit_id)
+                     Buffers: shared hit=3882 read=24119
+                     ->  Parallel Seq Scan on diagnosis d  (cost=0.00..25670.85 rows=486339 width=9) (actual time=60.956..342.546 rows=389333 loops=3)
+                           Filter: ((kind)::text = 'final'::text)
+                           Rows Removed by Filter: 247201
+                           Buffers: shared hit=1344 read=14381
+                     ->  Parallel Hash  (cost=18195.53..18195.53 rows=2 width=48) (actual time=119.523..119.527 rows=8 loops=3)
+                           Buckets: 1024  Batches: 1  Memory Usage: 104kB
+                           Buffers: shared hit=2442 read=9738
+                           ->  Nested Loop  (cost=8.86..18195.53 rows=2 width=48) (actual time=19.586..119.354 rows=8 loops=3)
+                                 Buffers: shared hit=2442 read=9738
+                                 ->  Nested Loop  (cost=8.59..18194.95 rows=2 width=40) (actual time=19.566..119.273 rows=8 loops=3)
+                                       Buffers: shared hit=2368 read=9738
+                                       ->  Hash Join  (cost=8.45..18194.64 rows=2 width=20) (actual time=19.522..119.131 rows=8 loops=3)
+                                             Hash Cond: (v.patient_id = p.patient_id)
+                                             Buffers: shared hit=2318 read=9738
+                                             ->  Parallel Seq Scan on visit v  (cost=0.00..16908.67 rows=486667 width=24) (actual time=0.030..54.834 rows=389333 loops=3)
+                                                   Buffers: shared hit=2304 read=9738
+                                             ->  Hash  (cost=8.44..8.44 rows=1 width=4) (actual time=0.066..0.066 rows=1 loops=3)
+                                                   Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                                   Buffers: shared hit=14
+                                                   ->  Index Scan using patient_hospital_number_key on patient p  (cost=0.42..8.44 rows=1 width=4) (actual time=0.035..0.036 rows=1 loops=3)
+                                                         Index Cond: ((hospital_number)::text = 'TH-0000001'::text)
+                                                         Buffers: shared hit=14
+                                       ->  Index Scan using branch_pkey on branch b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.011..0.011 rows=1 loops=24)
+                                             Index Cond: (branch_id = v.branch_id)
+                                             Buffers: shared hit=50
+                                 ->  Index Scan using staff_pkey on staff s  (cost=0.27..0.29 rows=1 width=16) (actual time=0.007..0.007 rows=1 loops=24)
+                                       Index Cond: (staff_id = v.doctor_id)
+                                       Buffers: shared hit=74
+               ->  Index Scan using diagnosis_code_pkey on diagnosis_code dc  (cost=0.14..0.15 rows=1 width=36) (actual time=0.022..0.022 rows=1 loops=24)
+                     Index Cond: ((icd10_code)::text = (d.icd10_code)::text)
+                     Buffers: shared hit=50
+ Planning:
+   Buffers: shared hit=31
+ Planning Time: 1.477 ms
+ Execution Time: 601.915 ms
+(48 rows)
+
+              Plan before              
+---------------------------------------
+ Q2: Doctor's day list (doctor portal)
+(1 row)
+
+                                                                                            QUERY PLAN                                                                                             
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=14286.63..14290.13 rows=30 width=59) (actual time=75.159..82.452 rows=26 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared hit=826 read=6917
+   ->  Sort  (cost=13286.60..13286.64 rows=15 width=59) (actual time=46.958..46.961 rows=9 loops=3)
+         Sort Key: a.scheduled_for
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=826 read=6917
+         Worker 0:  Sort Method: quicksort  Memory: 25kB
+         Worker 1:  Sort Method: quicksort  Memory: 25kB
+         ->  Nested Loop  (cost=0.42..13286.31 rows=15 width=59) (actual time=44.812..46.903 rows=9 loops=3)
+               Buffers: shared hit=810 read=6917
+               ->  Parallel Seq Scan on appointment a  (cost=0.00..13159.63 rows=15 width=20) (actual time=44.774..46.804 rows=9 loops=3)
+                     Filter: ((scheduled_for >= '2026-09-15 00:00:00'::timestamp without time zone) AND (scheduled_for < '2026-09-16 00:00:00'::timestamp without time zone) AND (doctor_id = 32))
+                     Rows Removed by Filter: 253186
+                     Buffers: shared hit=704 read=6917
+               ->  Index Scan using patient_pkey on patient p  (cost=0.42..8.44 rows=1 width=28) (actual time=0.009..0.009 rows=1 loops=26)
+                     Index Cond: (patient_id = a.patient_id)
+                     Buffers: shared hit=106
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.321 ms
+ Execution Time: 82.496 ms
+(23 rows)
+
+                 Plan before                  
+----------------------------------------------
+ Q3: Lab report for one visit (doctor review)
+(1 row)
+
+                                                                                  QUERY PLAN                                                                                   
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=9797.67..9797.91 rows=2 width=142) (actual time=90.434..97.343 rows=13 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared hit=874 read=4069
+   ->  Sort  (cost=8797.65..8797.66 rows=1 width=142) (actual time=56.757..56.761 rows=4 loops=3)
+         Sort Key: o.lab_order_id, t.name, tp.parameter_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=874 read=4069
+         Worker 0:  Sort Method: quicksort  Memory: 25kB
+         Worker 1:  Sort Method: quicksort  Memory: 26kB
+         ->  Nested Loop  (cost=1.12..8797.64 rows=1 width=142) (actual time=55.884..56.699 rows=4 loops=3)
+               Buffers: shared hit=840 read=4069
+               ->  Nested Loop  (cost=0.99..8797.46 rows=1 width=41) (actual time=55.874..56.452 rows=4 loops=3)
+                     Buffers: shared hit=813 read=4069
+                     ->  Nested Loop  (cost=0.85..8797.31 rows=1 width=30) (actual time=55.862..56.429 rows=4 loops=3)
+                           Buffers: shared hit=786 read=4069
+                           ->  Nested Loop  (cost=0.42..8796.69 rows=1 width=12) (actual time=55.842..56.401 rows=1 loops=3)
+                                 Buffers: shared hit=773 read=4069
+                                 ->  Parallel Seq Scan on lab_order o  (cost=0.00..8792.21 rows=1 width=4) (actual time=55.808..56.365 rows=0 loops=3)
+                                       Filter: (visit_id = 1124722)
+                                       Rows Removed by Filter: 253133
+                                       Buffers: shared hit=768 read=4069
+                                 ->  Index Only Scan using lab_order_item_pkey on lab_order_item i  (cost=0.42..4.46 rows=2 width=8) (actual time=0.095..0.097 rows=3 loops=1)
+                                       Index Cond: (lab_order_id = o.lab_order_id)
+                                       Heap Fetches: 0
+                                       Buffers: shared hit=5
+                           ->  Index Scan using lab_result_pkey on lab_result r  (cost=0.43..0.60 rows=1 width=26) (actual time=0.021..0.023 rows=4 loops=3)
+                                 Index Cond: ((lab_order_id = i.lab_order_id) AND (test_id = i.test_id))
+                                 Buffers: shared hit=13
+                     ->  Index Scan using lab_test_pkey on lab_test t  (cost=0.13..0.15 rows=1 width=23) (actual time=0.004..0.004 rows=1 loops=13)
+                           Index Cond: (test_id = i.test_id)
+                           Buffers: shared hit=27
+               ->  Index Scan using lab_test_parameter_pkey on lab_test_parameter tp  (cost=0.14..0.16 rows=1 width=33) (actual time=0.054..0.054 rows=1 loops=13)
+                     Index Cond: (parameter_id = r.parameter_id)
+                     Buffers: shared hit=27
+ Planning:
+   Buffers: shared hit=60
+ Planning Time: 2.739 ms
+ Execution Time: 97.406 ms
+(39 rows)
+
+                     Plan before                      
+------------------------------------------------------
+ Q4: Daily takings by payment method (branch manager)
+(1 row)
+
+                                                                                         QUERY PLAN                                                                                         
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=94769.26..94927.92 rows=3 width=46) (actual time=629.447..635.864 rows=3 loops=1)
+   Group Key: p.method
+   Buffers: shared hit=41284 read=53239
+   ->  Gather Merge  (cost=94769.26..94912.51 rows=1230 width=19) (actual time=629.321..635.516 rows=988 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=41284 read=53239
+         ->  Sort  (cost=93769.23..93770.51 rows=512 width=19) (actual time=595.972..596.001 rows=329 loops=3)
+               Sort Key: p.method, p.payment_id
+               Sort Method: quicksort  Memory: 43kB
+               Buffers: shared hit=41284 read=53239
+               Worker 0:  Sort Method: quicksort  Memory: 35kB
+               Worker 1:  Sort Method: quicksort  Memory: 46kB
+               ->  Nested Loop  (cost=32574.25..93746.19 rows=512 width=19) (actual time=567.503..595.537 rows=329 loops=3)
+                     Buffers: shared hit=41250 read=53239
+                     ->  Parallel Hash Join  (cost=32573.83..91354.53 rows=5167 width=23) (actual time=567.411..587.641 rows=3296 loops=3)
+                           Hash Cond: (c.payment_id = p.payment_id)
+                           Buffers: shared hit=1696 read=53239
+                           ->  Parallel Seq Scan on charge c  (cost=0.00..54441.45 rows=1653045 width=17) (actual time=0.029..177.028 rows=1322435 loops=3)
+                                 Buffers: shared hit=781 read=37130
+                           ->  Parallel Hash  (cost=32533.17..32533.17 rows=3252 width=10) (actual time=127.550..127.551 rows=2507 loops=3)
+                                 Buckets: 8192  Batches: 1  Memory Usage: 480kB
+                                 Buffers: shared hit=819 read=16109
+                                 ->  Parallel Seq Scan on payment p  (cost=0.00..32533.17 rows=3252 width=10) (actual time=122.236..126.746 rows=2507 loops=3)
+                                       Filter: ((received_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (received_at < '2026-09-16 00:00:00'::timestamp without time zone))
+                                       Rows Removed by Filter: 829769
+                                       Buffers: shared hit=819 read=16109
+                     ->  Index Scan using visit_pkey on visit v  (cost=0.43..0.46 rows=1 width=4) (actual time=0.002..0.002 rows=0 loops=9888)
+                           Index Cond: (visit_id = c.visit_id)
+                           Filter: (branch_id = 2)
+                           Rows Removed by Filter: 1
+                           Buffers: shared hit=39554
+ Planning:
+   Buffers: shared hit=16
+ Planning Time: 0.668 ms
+ Execution Time: 635.944 ms
+(36 rows)
+
+                      Plan before                      
+-------------------------------------------------------
+ Q5: Attendance by hour at one branch (branch manager)
+(1 row)
+
+                                                                                               QUERY PLAN                                                                                               
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate  (cost=21564.53..21608.46 rows=363 width=40) (actual time=107.662..111.867 rows=11 loops=1)
+   Group Key: (EXTRACT(hour FROM checked_in_at))
+   Buffers: shared hit=2474 read=9642
+   ->  Gather Merge  (cost=21564.53..21602.41 rows=302 width=40) (actual time=107.642..111.831 rows=16 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=2474 read=9642
+         ->  Partial GroupAggregate  (cost=20564.51..20567.53 rows=151 width=40) (actual time=88.651..88.681 rows=5 loops=3)
+               Group Key: (EXTRACT(hour FROM checked_in_at))
+               Buffers: shared hit=2474 read=9642
+               ->  Sort  (cost=20564.51..20564.89 rows=151 width=32) (actual time=88.641..88.649 rows=107 loops=3)
+                     Sort Key: (EXTRACT(hour FROM checked_in_at))
+                     Sort Method: quicksort  Memory: 26kB
+                     Buffers: shared hit=2474 read=9642
+                     Worker 0:  Sort Method: quicksort  Memory: 27kB
+                     Worker 1:  Sort Method: quicksort  Memory: 26kB
+                     ->  Parallel Seq Scan on visit v  (cost=0.00..20559.04 rows=151 width=32) (actual time=61.557..88.541 rows=107 loops=3)
+                           Filter: ((checked_in_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (checked_in_at < '2026-09-16 00:00:00'::timestamp without time zone) AND (branch_id = 2))
+                           Rows Removed by Filter: 389226
+                           Buffers: shared hit=2400 read=9642
+ Planning Time: 0.159 ms
+ Execution Time: 111.910 ms
+(22 rows)
+
+              Plan before               
+----------------------------------------
+ Q6: Find a patient by name (reception)
+(1 row)
+
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=7851.05..7851.75 rows=6 width=46) (actual time=85.306..90.822 rows=36 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared hit=807 read=3620
+   ->  Sort  (cost=6851.02..6851.03 rows=3 width=46) (actual time=59.266..59.268 rows=12 loops=3)
+         Sort Key: hospital_number
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=807 read=3620
+         Worker 0:  Sort Method: quicksort  Memory: 26kB
+         Worker 1:  Sort Method: quicksort  Memory: 25kB
+         ->  Parallel Seq Scan on patient  (cost=0.00..6851.00 rows=3 width=46) (actual time=55.624..59.122 rows=12 loops=3)
+               Filter: ((lower((last_name)::text) = 'onuoha'::text) AND (lower((first_name)::text) = 'ladi'::text))
+               Rows Removed by Filter: 99988
+               Buffers: shared hit=731 read=3620
+ Planning Time: 0.116 ms
+ Execution Time: 90.854 ms
+(16 rows)
+
+                        Plan before                        
+-----------------------------------------------------------
+ Q7: Confirmed malaria per state per month (public health)
+(1 row)
+
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate  (cost=53572.68..71635.64 rows=47402 width=17) (actual time=583.064..603.148 rows=50 loops=1)
+   Group Key: b.state, ((date_trunc('month'::text, d.made_at))::date)
+   Filter: (count(*) >= 1500)
+   Rows Removed by Filter: 142
+   Buffers: shared hit=4063 read=23831, temp read=620 written=623
+   ->  Gather Merge  (cost=53572.68..68732.28 rows=118504 width=17) (actual time=580.975..602.999 rows=576 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=4063 read=23831, temp read=620 written=623
+         ->  Partial GroupAggregate  (cost=52572.65..54053.95 rows=59252 width=17) (actual time=536.613..556.537 rows=192 loops=3)
+               Group Key: b.state, ((date_trunc('month'::text, d.made_at))::date)
+               Buffers: shared hit=4063 read=23831, temp read=620 written=623
+               ->  Sort  (cost=52572.65..52720.78 rows=59252 width=9) (actual time=536.427..546.204 rows=78618 loops=3)
+                     Sort Key: b.state, ((date_trunc('month'::text, d.made_at))::date)
+                     Sort Method: external merge  Disk: 1736kB
+                     Buffers: shared hit=4063 read=23831, temp read=620 written=623
+                     Worker 0:  Sort Method: external merge  Disk: 1568kB
+                     Worker 1:  Sort Method: external merge  Disk: 1656kB
+                     ->  Hash Join  (cost=28402.04..47875.58 rows=59252 width=9) (actual time=178.111..442.128 rows=78618 loops=3)
+                           Hash Cond: (v.branch_id = b.branch_id)
+                           Buffers: shared hit=3969 read=23831
+                           ->  Parallel Hash Join  (cost=28400.68..47381.22 rows=59252 width=12) (actual time=178.012..401.590 rows=78618 loops=3)
+                                 Hash Cond: (v.visit_id = d.visit_id)
+                                 Buffers: shared hit=3936 read=23831
+                                 ->  Parallel Seq Scan on visit v  (cost=0.00..16908.67 rows=486667 width=8) (actual time=0.044..58.572 rows=389333 loops=3)
+                                       Buffers: shared hit=2496 read=9546
+                                 ->  Parallel Hash  (cost=27660.03..27660.03 rows=59252 width=12) (actual time=176.748..176.749 rows=78618 loops=3)
+                                       Buckets: 262144  Batches: 1  Memory Usage: 13152kB
+                                       Buffers: shared hit=1440 read=14285
+                                       ->  Parallel Seq Scan on diagnosis d  (cost=0.00..27660.03 rows=59252 width=12) (actual time=48.476..145.317 rows=78618 loops=3)
+                                             Filter: (((kind)::text = 'final'::text) AND ((icd10_code)::text = 'B50.9'::text))
+                                             Rows Removed by Filter: 557917
+                                             Buffers: shared hit=1440 read=14285
+                           ->  Hash  (cost=1.16..1.16 rows=16 width=9) (actual time=0.054..0.055 rows=16 loops=3)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                 Buffers: shared hit=3
+                                 ->  Seq Scan on branch b  (cost=0.00..1.16 rows=16 width=9) (actual time=0.024..0.045 rows=16 loops=3)
+                                       Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=12
+ Planning Time: 0.450 ms
+ Execution Time: 604.475 ms
+(42 rows)
+
+                   Plan before                    
+--------------------------------------------------
+ Q8: Drugs below reorder level (head of pharmacy)
+(1 row)
+
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=12.15..12.39 rows=96 width=53) (actual time=0.514..0.527 rows=76 loops=1)
+   Sort Key: b.name, d.name
+   Sort Method: quicksort  Memory: 31kB
+   Buffers: shared hit=4
+   ->  Hash Join  (cost=2.77..8.99 rows=96 width=53) (actual time=0.073..0.227 rows=76 loops=1)
+         Hash Cond: (s.drug_id = d.drug_id)
+         Buffers: shared hit=4
+         ->  Hash Join  (cost=1.36..7.28 rows=96 width=36) (actual time=0.036..0.149 rows=76 loops=1)
+               Hash Cond: (s.branch_id = b.branch_id)
+               Buffers: shared hit=3
+               ->  Seq Scan on branch_stock s  (cost=0.00..5.60 rows=96 width=16) (actual time=0.014..0.082 rows=76 loops=1)
+                     Filter: (quantity_in_stock < reorder_level)
+                     Rows Removed by Filter: 212
+                     Buffers: shared hit=2
+               ->  Hash  (cost=1.16..1.16 rows=16 width=28) (actual time=0.016..0.017 rows=16 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=1
+                     ->  Seq Scan on branch b  (cost=0.00..1.16 rows=16 width=28) (actual time=0.007..0.010 rows=16 loops=1)
+                           Buffers: shared hit=1
+         ->  Hash  (cost=1.18..1.18 rows=18 width=25) (actual time=0.030..0.030 rows=18 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 10kB
+               Buffers: shared hit=1
+               ->  Seq Scan on drug d  (cost=0.00..1.18 rows=18 width=25) (actual time=0.012..0.018 rows=18 loops=1)
+                     Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.461 ms
+ Execution Time: 0.579 ms
+(28 rows)
+
+
+################################################################
+PART 3: APPLYING optimisations.sql
+################################################################
+Time: 0.347 ms
+Time: 1160.838 ms (00:01.161)
+Time: 1087.293 ms (00:01.087)
+Time: 449.420 ms
+Time: 1501.896 ms (00:01.502)
+Time: 2179.082 ms (00:02.179)
+Time: 1320.171 ms (00:01.320)
+Time: 705.433 ms
+Time: 1688.029 ms (00:01.688)
+Time: 23.408 ms
+Time: 1957.122 ms (00:01.957)
+
+################################################################
+PART 4: AFTER OPTIMISATION
+################################################################
+ warmed 
+--------
+      8
+(1 row)
+
+                 Plan after                 
+--------------------------------------------
+ Q1: Patient history (doctor and reception)
+(1 row)
+
+                                                                                QUERY PLAN                                                                                 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=37.35..37.36 rows=4 width=100) (actual time=0.273..0.276 rows=24 loops=1)
+   Sort Key: v.checked_in_at DESC
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=311
+   ->  Nested Loop Left Join  (cost=5.86..37.31 rows=4 width=100) (actual time=0.049..0.263 rows=24 loops=1)
+         Buffers: shared hit=311
+         ->  Nested Loop Left Join  (cost=5.72..36.68 rows=4 width=49) (actual time=0.045..0.225 rows=24 loops=1)
+               Buffers: shared hit=263
+               ->  Nested Loop  (cost=5.30..34.49 rows=4 width=48) (actual time=0.039..0.124 rows=24 loops=1)
+                     Buffers: shared hit=151
+                     ->  Nested Loop  (cost=5.02..33.33 rows=4 width=40) (actual time=0.035..0.088 rows=24 loops=1)
+                           Buffers: shared hit=79
+                           ->  Nested Loop  (cost=4.89..32.71 rows=4 width=20) (actual time=0.031..0.061 rows=24 loops=1)
+                                 Buffers: shared hit=31
+                                 ->  Index Scan using patient_hospital_number_key on patient p  (cost=0.42..8.44 rows=1 width=4) (actual time=0.013..0.013 rows=1 loops=1)
+                                       Index Cond: ((hospital_number)::text = 'TH-0000001'::text)
+                                       Buffers: shared hit=4
+                                 ->  Bitmap Heap Scan on visit v  (cost=4.47..24.22 rows=5 width=24) (actual time=0.014..0.039 rows=24 loops=1)
+                                       Recheck Cond: (p.patient_id = patient_id)
+                                       Heap Blocks: exact=24
+                                       Buffers: shared hit=27
+                                       ->  Bitmap Index Scan on visit_patient_checked_in_idx  (cost=0.00..4.46 rows=5 width=0) (actual time=0.007..0.008 rows=24 loops=1)
+                                             Index Cond: (patient_id = p.patient_id)
+                                             Buffers: shared hit=3
+                           ->  Index Scan using branch_pkey on branch b  (cost=0.14..0.15 rows=1 width=28) (actual time=0.001..0.001 rows=1 loops=24)
+                                 Index Cond: (branch_id = v.branch_id)
+                                 Buffers: shared hit=48
+                     ->  Index Scan using staff_pkey on staff s  (cost=0.27..0.29 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=24)
+                           Index Cond: (staff_id = v.doctor_id)
+                           Buffers: shared hit=72
+               ->  Index Scan using diagnosis_visit_idx on diagnosis d  (cost=0.43..0.54 rows=1 width=9) (actual time=0.004..0.004 rows=1 loops=24)
+                     Index Cond: (visit_id = v.visit_id)
+                     Filter: ((kind)::text = 'final'::text)
+                     Rows Removed by Filter: 1
+                     Buffers: shared hit=112
+         ->  Index Scan using diagnosis_code_pkey on diagnosis_code dc  (cost=0.14..0.15 rows=1 width=36) (actual time=0.001..0.001 rows=1 loops=24)
+               Index Cond: ((icd10_code)::text = (d.icd10_code)::text)
+               Buffers: shared hit=48
+ Planning:
+   Buffers: shared hit=47
+ Planning Time: 1.717 ms
+ Execution Time: 0.326 ms
+(42 rows)
+
+              Plan after               
+---------------------------------------
+ Q2: Doctor's day list (doctor portal)
+(1 row)
+
+                                                                                                                 QUERY PLAN                                                                                                                  
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=410.51..410.59 rows=33 width=59) (actual time=0.269..0.271 rows=26 loops=1)
+   Sort Key: a.scheduled_for
+   Sort Method: quicksort  Memory: 26kB
+   Buffers: shared hit=124
+   ->  Nested Loop  (cost=5.27..409.68 rows=33 width=59) (actual time=0.044..0.246 rows=26 loops=1)
+         Buffers: shared hit=124
+         ->  Bitmap Heap Scan on appointment a  (cost=4.85..130.99 rows=33 width=20) (actual time=0.027..0.061 rows=26 loops=1)
+               Recheck Cond: ((doctor_id = 32) AND (scheduled_for >= '2026-09-15 00:00:00'::timestamp without time zone) AND (scheduled_for < '2026-09-16 00:00:00'::timestamp without time zone) AND ((status)::text <> 'cancelled'::text))
+               Heap Blocks: exact=17
+               Buffers: shared hit=20
+               ->  Bitmap Index Scan on appointment_no_double_booking  (cost=0.00..4.84 rows=33 width=0) (actual time=0.020..0.020 rows=26 loops=1)
+                     Index Cond: ((doctor_id = 32) AND (scheduled_for >= '2026-09-15 00:00:00'::timestamp without time zone) AND (scheduled_for < '2026-09-16 00:00:00'::timestamp without time zone))
+                     Buffers: shared hit=3
+         ->  Index Scan using patient_pkey on patient p  (cost=0.42..8.44 rows=1 width=28) (actual time=0.005..0.005 rows=1 loops=26)
+               Index Cond: (patient_id = a.patient_id)
+               Buffers: shared hit=104
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.381 ms
+ Execution Time: 0.312 ms
+(20 rows)
+
+                  Plan after                  
+----------------------------------------------
+ Q3: Lab report for one visit (doctor review)
+(1 row)
+
+                                                                               QUERY PLAN                                                                                
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=14.26..14.26 rows=3 width=142) (actual time=0.136..0.138 rows=13 loops=1)
+   Sort Key: o.lab_order_id, t.name, tp.parameter_id
+   Sort Method: quicksort  Memory: 26kB
+   Buffers: shared hit=52
+   ->  Nested Loop  (cost=1.55..14.23 rows=3 width=142) (actual time=0.051..0.101 rows=13 loops=1)
+         Buffers: shared hit=52
+         ->  Nested Loop  (cost=1.41..13.69 rows=3 width=41) (actual time=0.042..0.063 rows=13 loops=1)
+               Join Filter: (t.test_id = r.test_id)
+               Buffers: shared hit=26
+               ->  Nested Loop  (cost=0.98..13.08 rows=1 width=35) (actual time=0.032..0.038 rows=3 loops=1)
+                     Buffers: shared hit=14
+                     ->  Nested Loop  (cost=0.85..12.92 rows=1 width=12) (actual time=0.026..0.028 rows=3 loops=1)
+                           Buffers: shared hit=8
+                           ->  Index Scan using lab_order_visit_idx on lab_order o  (cost=0.42..8.44 rows=1 width=4) (actual time=0.014..0.014 rows=1 loops=1)
+                                 Index Cond: (visit_id = 1124722)
+                                 Buffers: shared hit=4
+                           ->  Index Only Scan using lab_order_item_pkey on lab_order_item i  (cost=0.42..4.46 rows=2 width=8) (actual time=0.009..0.010 rows=3 loops=1)
+                                 Index Cond: (lab_order_id = o.lab_order_id)
+                                 Heap Fetches: 0
+                                 Buffers: shared hit=4
+                     ->  Index Scan using lab_test_pkey on lab_test t  (cost=0.13..0.15 rows=1 width=23) (actual time=0.002..0.002 rows=1 loops=3)
+                           Index Cond: (test_id = i.test_id)
+                           Buffers: shared hit=6
+               ->  Index Scan using lab_result_pkey on lab_result r  (cost=0.43..0.60 rows=1 width=26) (actual time=0.005..0.006 rows=4 loops=3)
+                     Index Cond: ((lab_order_id = i.lab_order_id) AND (test_id = i.test_id))
+                     Buffers: shared hit=12
+         ->  Index Scan using lab_test_parameter_pkey on lab_test_parameter tp  (cost=0.14..0.16 rows=1 width=33) (actual time=0.001..0.001 rows=1 loops=13)
+               Index Cond: (parameter_id = r.parameter_id)
+               Buffers: shared hit=26
+ Planning:
+   Buffers: shared hit=60
+ Planning Time: 4.875 ms
+ Execution Time: 0.198 ms
+(33 rows)
+
+                      Plan after                      
+------------------------------------------------------
+ Q4: Daily takings by payment method (branch manager)
+(1 row)
+
+                                                                                           QUERY PLAN                                                                                           
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=40162.04..40322.64 rows=3 width=46) (actual time=38.227..41.804 rows=3 loops=1)
+   Group Key: p.method
+   Buffers: shared hit=69767
+   ->  Gather Merge  (cost=40162.04..40307.04 rows=1245 width=19) (actual time=37.973..41.051 rows=988 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=69767
+         ->  Sort  (cost=39162.01..39163.31 rows=519 width=19) (actual time=16.689..16.721 rows=329 loops=3)
+               Sort Key: p.method, p.payment_id
+               Sort Method: quicksort  Memory: 60kB
+               Buffers: shared hit=69767
+               Worker 0:  Sort Method: quicksort  Memory: 30kB
+               Worker 1:  Sort Method: quicksort  Memory: 32kB
+               ->  Nested Loop  (cost=170.30..39138.61 rows=519 width=19) (actual time=0.604..16.310 rows=329 loops=3)
+                     Buffers: shared hit=69733
+                     ->  Nested Loop  (cost=169.88..36716.40 rows=5233 width=23) (actual time=0.521..8.199 rows=3296 loops=3)
+                           Buffers: shared hit=30179
+                           ->  Parallel Bitmap Heap Scan on payment p  (cost=169.45..14023.09 rows=3293 width=10) (actual time=0.479..0.847 rows=2507 loops=3)
+                                 Recheck Cond: ((received_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (received_at < '2026-09-16 00:00:00'::timestamp without time zone))
+                                 Heap Blocks: exact=41
+                                 Buffers: shared hit=75
+                                 ->  Bitmap Index Scan on payment_received_at_idx  (cost=0.00..167.47 rows=7904 width=0) (actual time=1.217..1.218 rows=7520 loops=1)
+                                       Index Cond: ((received_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (received_at < '2026-09-16 00:00:00'::timestamp without time zone))
+                                       Buffers: shared hit=24
+                           ->  Index Scan using charge_payment_idx on charge c  (cost=0.43..6.87 rows=2 width=17) (actual time=0.002..0.002 rows=1 loops=7520)
+                                 Index Cond: (payment_id = p.payment_id)
+                                 Buffers: shared hit=30104
+                     ->  Index Scan using visit_pkey on visit v  (cost=0.43..0.46 rows=1 width=4) (actual time=0.002..0.002 rows=0 loops=9888)
+                           Index Cond: (visit_id = c.visit_id)
+                           Filter: (branch_id = 2)
+                           Rows Removed by Filter: 1
+                           Buffers: shared hit=39554
+ Planning:
+   Buffers: shared hit=24
+ Planning Time: 0.763 ms
+ Execution Time: 41.891 ms
+(36 rows)
+
+                      Plan after                       
+-------------------------------------------------------
+ Q5: Attendance by hour at one branch (branch manager)
+(1 row)
+
+                                                                                           QUERY PLAN                                                                                           
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=33.09..40.39 rows=365 width=40) (actual time=0.243..0.332 rows=11 loops=1)
+   Group Key: (EXTRACT(hour FROM checked_in_at))
+   Buffers: shared hit=6
+   ->  Sort  (cost=33.09..34.00 rows=365 width=32) (actual time=0.236..0.260 rows=321 loops=1)
+         Sort Key: (EXTRACT(hour FROM checked_in_at))
+         Sort Method: quicksort  Memory: 30kB
+         Buffers: shared hit=6
+         ->  Index Only Scan using visit_branch_checked_in_idx on visit v  (cost=0.43..17.55 rows=365 width=32) (actual time=0.034..0.179 rows=321 loops=1)
+               Index Cond: ((branch_id = 2) AND (checked_in_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (checked_in_at < '2026-09-16 00:00:00'::timestamp without time zone))
+               Heap Fetches: 0
+               Buffers: shared hit=6
+ Planning Time: 0.928 ms
+ Execution Time: 0.365 ms
+(13 rows)
+
+               Plan after               
+----------------------------------------
+ Q6: Find a patient by name (reception)
+(1 row)
+
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=138.23..138.32 rows=36 width=46) (actual time=0.130..0.135 rows=36 loops=1)
+   Sort Key: hospital_number
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=8
+   ->  Index Scan using patient_lower_name_idx on patient  (cost=0.42..137.30 rows=36 width=46) (actual time=0.028..0.057 rows=36 loops=1)
+         Index Cond: ((lower((last_name)::text) = 'onuoha'::text) AND (lower((first_name)::text) = 'ladi'::text))
+         Buffers: shared hit=8
+ Planning Time: 0.212 ms
+ Execution Time: 0.182 ms
+(9 rows)
+
+                        Plan after                         
+-----------------------------------------------------------
+ Q7: Confirmed malaria per state per month (public health)
+(1 row)
+
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=55.58..55.61 rows=9 width=17) (actual time=0.552..0.558 rows=50 loops=1)
+   Sort Key: state, month
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=18
+   ->  Seq Scan on monthly_diagnosis_by_state  (cost=0.00..55.44 rows=9 width=17) (actual time=0.015..0.476 rows=50 loops=1)
+         Filter: ((cases >= 1500) AND ((icd10_code)::text = 'B50.9'::text))
+         Rows Removed by Filter: 2446
+         Buffers: shared hit=18
+ Planning Time: 0.100 ms
+ Execution Time: 0.579 ms
+(10 rows)
+
+                    Plan after                    
+--------------------------------------------------
+ Q8: Drugs below reorder level (head of pharmacy)
+(1 row)
+
+                                                         QUERY PLAN                                                          
+-----------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=12.15..12.39 rows=96 width=53) (actual time=0.424..0.442 rows=76 loops=1)
+   Sort Key: b.name, d.name
+   Sort Method: quicksort  Memory: 31kB
+   Buffers: shared hit=4
+   ->  Hash Join  (cost=2.77..8.99 rows=96 width=53) (actual time=0.064..0.185 rows=76 loops=1)
+         Hash Cond: (s.drug_id = d.drug_id)
+         Buffers: shared hit=4
+         ->  Hash Join  (cost=1.36..7.28 rows=96 width=36) (actual time=0.030..0.117 rows=76 loops=1)
+               Hash Cond: (s.branch_id = b.branch_id)
+               Buffers: shared hit=3
+               ->  Seq Scan on branch_stock s  (cost=0.00..5.60 rows=96 width=16) (actual time=0.010..0.059 rows=76 loops=1)
+                     Filter: (quantity_in_stock < reorder_level)
+                     Rows Removed by Filter: 212
+                     Buffers: shared hit=2
+               ->  Hash  (cost=1.16..1.16 rows=16 width=28) (actual time=0.013..0.016 rows=16 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=1
+                     ->  Seq Scan on branch b  (cost=0.00..1.16 rows=16 width=28) (actual time=0.006..0.009 rows=16 loops=1)
+                           Buffers: shared hit=1
+         ->  Hash  (cost=1.18..1.18 rows=18 width=25) (actual time=0.028..0.028 rows=18 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 10kB
+               Buffers: shared hit=1
+               ->  Seq Scan on drug d  (cost=0.00..1.18 rows=18 width=25) (actual time=0.012..0.018 rows=18 loops=1)
+                     Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=8
+ Planning Time: 0.473 ms
+ Execution Time: 0.487 ms
+(28 rows)
+
+
+################################################################
+PART 5: SUMMARY (median of 5 runs, warm cache)
+################################################################
+ id |                         title                         | before_ms | after_ms | times_faster | pages_before | pages_after 
+----+-------------------------------------------------------+-----------+----------+--------------+--------------+-------------
+ Q1 | Patient history (doctor and reception)                |    378.78 |     0.30 |       1262.6 |        28051 |         311
+ Q2 | Doctor's day list (doctor portal)                     |     65.53 |     0.12 |        546.1 |         7743 |         124
+ Q3 | Lab report for one visit (doctor review)              |     56.17 |     0.11 |        510.6 |         4943 |          52
+ Q4 | Daily takings by payment method (branch manager)      |    645.35 |    42.98 |         15.0 |        94523 |       69767
+ Q5 | Attendance by hour at one branch (branch manager)     |     91.87 |     0.20 |        459.4 |        12116 |           6
+ Q6 | Find a patient by name (reception)                    |    105.50 |     0.06 |       1758.3 |         4427 |           8
+ Q7 | Confirmed malaria per state per month (public health) |    767.37 |     0.26 |       2951.4 |        27894 |          18
+ Q8 | Drugs below reorder level (head of pharmacy)          |      0.23 |     0.24 |          1.0 |            4 |           4
+(8 rows)
+
+
+Scan methods used
+ id | phase  |                                                                                                                                scans                                                                                                                                 
+----+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Q1 | before | Index Scan using branch_pkey; Index Scan using diagnosis_code_pkey; Index Scan using patient_hospital_number_key; Index Scan using staff_pkey; Parallel Seq Scan on diagnosis; Parallel Seq Scan on visit
+ Q1 | after  | Bitmap Heap Scan on visit; Bitmap Index Scan using visit_patient_checked_in_idx; Index Scan using branch_pkey; Index Scan using diagnosis_code_pkey; Index Scan using diagnosis_visit_idx; Index Scan using patient_hospital_number_key; Index Scan using staff_pkey
+ Q2 | before | Index Scan using patient_pkey; Parallel Seq Scan on appointment
+ Q2 | after  | Bitmap Heap Scan on appointment; Bitmap Index Scan using appointment_no_double_booking; Index Scan using patient_pkey
+ Q3 | before | Index Only Scan using lab_order_item_pkey; Index Scan using lab_result_pkey; Index Scan using lab_test_parameter_pkey; Index Scan using lab_test_pkey; Parallel Seq Scan on lab_order
+ Q3 | after  | Index Only Scan using lab_order_item_pkey; Index Scan using lab_order_visit_idx; Index Scan using lab_result_pkey; Index Scan using lab_test_parameter_pkey; Index Scan using lab_test_pkey
+ Q4 | before | Index Scan using visit_pkey; Parallel Seq Scan on charge; Parallel Seq Scan on payment
+ Q4 | after  | Bitmap Index Scan using payment_received_at_idx; Index Scan using charge_payment_idx; Index Scan using visit_pkey; Parallel Bitmap Heap Scan on payment
+ Q5 | before | Parallel Seq Scan on visit
+ Q5 | after  | Index Only Scan using visit_branch_checked_in_idx
+ Q6 | before | Parallel Seq Scan on patient
+ Q6 | after  | Index Scan using patient_lower_name_idx
+ Q7 | before | Parallel Seq Scan on diagnosis; Parallel Seq Scan on visit; Seq Scan on branch
+ Q7 | after  | Seq Scan on monthly_diagnosis_by_state
+ Q8 | before | Seq Scan on branch; Seq Scan on branch_stock; Seq Scan on drug
+ Q8 | after  | Seq Scan on branch; Seq Scan on branch_stock; Seq Scan on drug
+(16 rows)
+
+
+################################################################
+PART 6: QUERY REWRITES
+################################################################
+R4 setup: a copy of payment that also records the branch that received the money
+R4 check: both versions of Q4 give the same answer
+  method  | payments |   amount   
+----------+----------+------------
+ card     |      154 |  999010.00
+ cash     |      299 | 1573985.00
+ transfer |      296 | 1836700.00
+(3 rows)
+
+  method  | payments |   amount   
+----------+----------+------------
+ card     |      154 |  999010.00
+ cash     |      299 | 1573985.00
+ transfer |      296 | 1836700.00
+(3 rows)
+
+ id |                         variant                          | median_ms | pages |                                                                          scans                                                                          
+----+----------------------------------------------------------+-----------+-------+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ R1 | Q5 written with checked_in_at::date = ... (not sargable) |     13.39 |   453 | Index Only Scan using visit_branch_checked_in_idx
+ R1 | Q5 written as a date range (sargable)                    |      0.17 |     6 | Index Only Scan using visit_branch_checked_in_idx
+ R2 | IN (subquery)                                            |     71.08 |  5446 | Bitmap Index Scan using visit_branch_checked_in_idx; Parallel Bitmap Heap Scan on visit; Parallel Seq Scan on patient
+ R2 | EXISTS (correlated subquery)                             |     68.36 |  5446 | Bitmap Index Scan using visit_branch_checked_in_idx; Parallel Bitmap Heap Scan on visit; Parallel Seq Scan on patient
+ R2 | JOIN with DISTINCT                                       |     43.59 | 29994 | Bitmap Index Scan using visit_branch_checked_in_idx; Index Only Scan using patient_pkey; Parallel Bitmap Heap Scan on visit
+ R3 | NOT EXISTS                                               |    366.15 | 16517 | Parallel Seq Scan on patient; Parallel Seq Scan on visit
+ R4 | Q4 as designed: branch found through charge and visit    |     40.47 | 69767 | Bitmap Index Scan using payment_received_at_idx; Index Scan using charge_payment_idx; Index Scan using visit_pkey; Parallel Bitmap Heap Scan on payment
+ R4 | Experiment: branch stored on payment                     |      2.85 |  3064 | Bitmap Heap Scan on payment_with_branch; Bitmap Index Scan using payment_with_branch_branch_id_received_at_idx; Index Scan using charge_payment_idx
+(8 rows)
+
+R4 plan with the branch stored on payment
+                                                                                               QUERY PLAN                                                                                               
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=9764.24..9780.62 rows=3 width=46) (actual time=3.649..4.159 rows=3 loops=1)
+   Group Key: p.method
+   Buffers: shared hit=3064
+   ->  Sort  (cost=9764.24..9766.97 rows=1089 width=19) (actual time=3.531..3.599 rows=988 loops=1)
+         Sort Key: p.method, p.payment_id
+         Sort Method: quicksort  Memory: 74kB
+         Buffers: shared hit=3064
+         ->  Nested Loop  (cost=27.52..9709.31 rows=1089 width=19) (actual time=0.153..2.356 rows=988 loops=1)
+               Buffers: shared hit=3064
+               ->  Bitmap Heap Scan on payment_with_branch p  (cost=27.09..2795.85 rows=836 width=10) (actual time=0.134..0.318 rows=749 loops=1)
+                     Recheck Cond: ((branch_id = 2) AND (received_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (received_at < '2026-09-16 00:00:00'::timestamp without time zone))
+                     Heap Blocks: exact=59
+                     Buffers: shared hit=65
+                     ->  Bitmap Index Scan on payment_with_branch_branch_id_received_at_idx  (cost=0.00..26.88 rows=836 width=0) (actual time=0.120..0.120 rows=749 loops=1)
+                           Index Cond: ((branch_id = 2) AND (received_at >= '2026-09-15 00:00:00'::timestamp without time zone) AND (received_at < '2026-09-16 00:00:00'::timestamp without time zone))
+                           Buffers: shared hit=6
+               ->  Index Scan using charge_payment_idx on charge c  (cost=0.43..8.25 rows=2 width=13) (actual time=0.002..0.002 rows=1 loops=749)
+                     Index Cond: (payment_id = p.payment_id)
+                     Buffers: shared hit=2999
+ Planning:
+   Buffers: shared hit=16
+ Planning Time: 0.415 ms
+ Execution Time: 4.220 ms
+(23 rows)
+
+
+R2 plans: IN and EXISTS
+                                                                                                       QUERY PLAN                                                                                                       
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Hash Semi Join
+                     Hash Cond: (p.patient_id = v.patient_id)
+                     ->  Parallel Seq Scan on patient p
+                     ->  Parallel Hash
+                           ->  Parallel Bitmap Heap Scan on visit v
+                                 Recheck Cond: ((branch_id = 2) AND (checked_in_at >= '2026-09-01 00:00:00'::timestamp without time zone) AND (checked_in_at < '2026-10-01 00:00:00'::timestamp without time zone))
+                                 ->  Bitmap Index Scan on visit_branch_checked_in_idx
+                                       Index Cond: ((branch_id = 2) AND (checked_in_at >= '2026-09-01 00:00:00'::timestamp without time zone) AND (checked_in_at < '2026-10-01 00:00:00'::timestamp without time zone))
+(12 rows)
+
+                                                                                                       QUERY PLAN                                                                                                       
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Hash Semi Join
+                     Hash Cond: (p.patient_id = v.patient_id)
+                     ->  Parallel Seq Scan on patient p
+                     ->  Parallel Hash
+                           ->  Parallel Bitmap Heap Scan on visit v
+                                 Recheck Cond: ((branch_id = 2) AND (checked_in_at >= '2026-09-01 00:00:00'::timestamp without time zone) AND (checked_in_at < '2026-10-01 00:00:00'::timestamp without time zone))
+                                 ->  Bitmap Index Scan on visit_branch_checked_in_idx
+                                       Index Cond: ((branch_id = 2) AND (checked_in_at >= '2026-09-01 00:00:00'::timestamp without time zone) AND (checked_in_at < '2026-10-01 00:00:00'::timestamp without time zone))
+(12 rows)
+
+
+R3: NOT EXISTS against NOT IN, "patients with no visit this year"
+ count 
+-------
+  6857
+(1 row)
+
+                          QUERY PLAN                          
+--------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Hash Right Anti Join
+                     Hash Cond: (v.patient_id = p.patient_id)
+                     ->  Parallel Seq Scan on visit v
+                     ->  Parallel Hash
+                           ->  Parallel Seq Scan on patient p
+(9 rows)
+
+                     QUERY PLAN                      
+-----------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Seq Scan on patient p
+                     Filter: (NOT (SubPlan 1))
+                     SubPlan 1
+                       ->  Materialize
+                             ->  Seq Scan on visit v
+(9 rows)
+
+Running the NOT IN version with a 30 second limit...
+psql:/portfolio/portfolio-2-query-optimisation/benchmark.sql:321: ERROR:  canceling statement due to statement timeout
+
+################################################################
+PART 7: WHAT THE OPTIMISATIONS COST
+################################################################
+Index sizes compared with their tables
+           index_name           |         table_name         | index_size | table_size 
+--------------------------------+----------------------------+------------+------------
+ charge_payment_idx             | charge                     | 71 MB      | 296 MB
+ payment_received_at_idx        | payment                    | 54 MB      | 132 MB
+ diagnosis_visit_idx            | diagnosis                  | 38 MB      | 123 MB
+ visit_branch_checked_in_idx    | visit                      | 35 MB      | 94 MB
+ visit_patient_checked_in_idx   | visit                      | 35 MB      | 94 MB
+ lab_order_visit_idx            | lab_order                  | 16 MB      | 38 MB
+ patient_lower_name_idx         | patient                    | 2312 kB    | 34 MB
+ monthly_diagnosis_by_state_key | monthly_diagnosis_by_state | 112 kB     | 144 kB
+(8 rows)
+
+ materialised_view_size | materialised_view_rows 
+------------------------+------------------------
+ 144 kB                 |                   2496
+(1 row)
+
+
+Refreshing the materialised view (would run nightly)
+Time: 3164.898 ms (00:03.165)
+
+Inserting all 1,168,000 visits into a copy of the visit table
+          indexes_on_table           | insert_ms 
+-------------------------------------+-----------
+ no indexes                          |      1763
+ primary key only                    |      3646
+ primary key + 2 Portfolio 2 indexes |     11077
+(3 rows)
+
+
+Benchmark complete.
