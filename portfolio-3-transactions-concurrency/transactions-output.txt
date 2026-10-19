@@ -1,0 +1,794 @@
+################################################################
+PORTFOLIO 3: TRANSACTIONS AND CONCURRENCY
+All demonstrations run at Tomiwa Hospitals Ilorin (branch 1).
+Session A is this script. Session B is a second connection opened with dblink.
+################################################################
+
+=== Setup
+ session_b_connected 
+---------------------
+ OK
+(1 row)
+
+ prescription_a | prescription_b |            staff             
+----------------+----------------+------------------------------
+ 1168034        | 1168035        | pharmacists: staff 27 and 28
+(1 row)
+
+Prescription A: paracetamol 18 + amoxicillin 15. Prescription B: paracetamol 18 + amoxicillin 48.
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |      100
+ Amoxicillin 500 mg |       40
+(2 rows)
+
+
+################################################################
+PART 1: ATOMICITY - all or nothing
+################################################################
+
+=== 1.1 COMMIT: pharmacist 27 dispenses prescription A as one transaction
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 18 WHERE branch_id = 1 AND drug_id = 1;
+UPDATE 1
+UPDATE prescription_item SET dispensed_by = 27, dispensed_at = '2026-10-19 10:00' WHERE prescription_id = 1168034 AND drug_id = 1;
+UPDATE 1
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 15 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+UPDATE prescription_item SET dispensed_by = 27, dispensed_at = '2026-10-19 10:00' WHERE prescription_id = 1168034 AND drug_id = 4;
+UPDATE 1
+COMMIT;
+COMMIT
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |       82
+ Amoxicillin 500 mg |       25
+(2 rows)
+
+
+=== 1.2 ROLLBACK: prescription B needs 48 amoxicillin but only 25 are in stock
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 18 WHERE branch_id = 1 AND drug_id = 1;
+UPDATE 1
+UPDATE prescription_item SET dispensed_by = 27, dispensed_at = '2026-10-19 10:10' WHERE prescription_id = 1168035 AND drug_id = 1;
+UPDATE 1
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 48 WHERE branch_id = 1 AND drug_id = 4;
+psql:/portfolio/portfolio-3-transactions-concurrency/transactions.sql:167: ERROR:  new row for relation "branch_stock" violates check constraint "branch_stock_quantity_in_stock_check"
+DETAIL:  Failing row contains (1, 4, -23, 217).
+UPDATE prescription_item SET dispensed_by = 27, dispensed_at = '2026-10-19 10:10' WHERE prescription_id = 1168035 AND drug_id = 4;
+psql:/portfolio/portfolio-3-transactions-concurrency/transactions.sql:168: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+COMMIT;
+ROLLBACK
+The paracetamol already taken off inside the transaction was put back too:
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |       82
+ Amoxicillin 500 mg |       25
+(2 rows)
+
+SELECT drug_id, quantity, dispensed_by FROM prescription_item WHERE prescription_id = 1168035 ORDER BY drug_id;
+ drug_id | quantity | dispensed_by 
+---------+----------+--------------
+       1 |       18 |       (none)
+       4 |       48 |       (none)
+(2 rows)
+
+
+=== 1.3 SAVEPOINT: dispense what is available, request a restock for the rest
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 18 WHERE branch_id = 1 AND drug_id = 1;
+UPDATE 1
+UPDATE prescription_item SET dispensed_by = 27, dispensed_at = '2026-10-19 10:15' WHERE prescription_id = 1168035 AND drug_id = 1;
+UPDATE 1
+SAVEPOINT before_amoxicillin;
+SAVEPOINT
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 48 WHERE branch_id = 1 AND drug_id = 4;
+psql:/portfolio/portfolio-3-transactions-concurrency/transactions.sql:180: ERROR:  new row for relation "branch_stock" violates check constraint "branch_stock_quantity_in_stock_check"
+DETAIL:  Failing row contains (1, 4, -23, 217).
+ROLLBACK TO SAVEPOINT before_amoxicillin;
+ROLLBACK
+INSERT INTO restock_request (branch_id, drug_id, quantity_requested, requested_by, requested_at, status)
+VALUES (1, 4, 200, 2, '2026-10-19 10:16', 'pending');
+INSERT 0 1
+COMMIT;
+COMMIT
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |       64
+ Amoxicillin 500 mg |       25
+(2 rows)
+
+SELECT drug_id, quantity, dispensed_by FROM prescription_item WHERE prescription_id = 1168035 ORDER BY drug_id;
+ drug_id | quantity | dispensed_by 
+---------+----------+--------------
+       1 |       18 |           27
+       4 |       48 |       (none)
+(2 rows)
+
+SELECT request_id, drug_id, quantity_requested, status FROM restock_request WHERE branch_id = 1 AND requested_at >= '2026-10-19';
+ request_id | drug_id | quantity_requested | status  
+------------+---------+--------------------+---------
+       1803 |       4 |                200 | pending
+(1 row)
+
+
+=== 1.4 A rule inside the transaction fails: a nurse (staff 11) is recorded as dispensing
+BEGIN;
+BEGIN
+UPDATE prescription_item SET dispensed_by = 11, dispensed_at = '2026-10-19 10:20' WHERE prescription_id = 1168035 AND drug_id = 4;
+psql:/portfolio/portfolio-3-transactions-concurrency/transactions.sql:192: ERROR:  prescription_item.dispensed_by must be a pharmacist, but staff member 11 is a nurse
+CONTEXT:  PL/pgSQL function check_staff_role() line 15 at RAISE
+ROLLBACK;
+ROLLBACK
+
+################################################################
+PART 2: ISOLATION - what one session can see of another
+################################################################
+
+=== 2.1 No dirty reads: B cannot see A's uncommitted change
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = 0 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+SELECT p3_demo.b_value('SELECT quantity_in_stock FROM branch_stock WHERE branch_id = 1 AND drug_id = 4') AS "session B reads amoxicillin";
+ session B reads amoxicillin 
+-----------------------------
+ 25
+(1 row)
+
+ROLLBACK;
+ROLLBACK
+
+=== 2.2 READ COMMITTED: a non-repeatable read
+BEGIN ISOLATION LEVEL READ COMMITTED;
+BEGIN
+SELECT quantity_in_stock AS "A reads amoxicillin" FROM branch_stock WHERE branch_id = 1 AND drug_id = 4;
+ A reads amoxicillin 
+---------------------
+                  25
+(1 row)
+
+SELECT p3_demo.b('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock + 200 WHERE branch_id = 1 AND drug_id = 4') AS "session B: a delivery of 200 is recorded";
+ session B: a delivery of 200 is recorded 
+------------------------------------------
+ UPDATE 1
+(1 row)
+
+SELECT quantity_in_stock AS "A reads amoxicillin again" FROM branch_stock WHERE branch_id = 1 AND drug_id = 4;
+ A reads amoxicillin again 
+---------------------------
+                       225
+(1 row)
+
+COMMIT;
+COMMIT
+
+=== 2.3 REPEATABLE READ: the same read gives the same answer
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+BEGIN
+SELECT quantity_in_stock AS "A reads amoxicillin" FROM branch_stock WHERE branch_id = 1 AND drug_id = 4;
+ A reads amoxicillin 
+---------------------
+                 225
+(1 row)
+
+SELECT p3_demo.b('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 15 WHERE branch_id = 1 AND drug_id = 4') AS "session B: dispenses 15";
+ session B: dispenses 15 
+-------------------------
+ UPDATE 1
+(1 row)
+
+SELECT quantity_in_stock AS "A reads amoxicillin again" FROM branch_stock WHERE branch_id = 1 AND drug_id = 4;
+ A reads amoxicillin again 
+---------------------------
+                       225
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT quantity_in_stock AS "A after its transaction ends" FROM branch_stock WHERE branch_id = 1 AND drug_id = 4;
+ A after its transaction ends 
+------------------------------
+                          210
+(1 row)
+
+
+=== 2.4 LOST UPDATE at READ COMMITTED: two pharmacists read the stock, subtract, and write the result
+A dispenses 10 and B dispenses 5, so 15 should come off.
+BEGIN;
+BEGIN
+SELECT quantity_in_stock AS a_qty FROM branch_stock WHERE branch_id = 1 AND drug_id = 4 
+SELECT p3_demo.b('BEGIN') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT quantity_in_stock FROM branch_stock WHERE branch_id = 1 AND drug_id = 4') AS b_qty 
+A read 210 and B read 210
+UPDATE branch_stock SET quantity_in_stock = 210 - 10 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+COMMIT;
+COMMIT
+SELECT p3_demo.b(format('UPDATE branch_stock SET quantity_in_stock = %s WHERE branch_id = 1 AND drug_id = 4', 210 - 5)) AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+SELECT p3_demo.b('COMMIT') AS "session B";
+ session B 
+-----------
+ COMMIT
+(1 row)
+
+SELECT quantity_in_stock AS "amoxicillin now", 210 - 15 AS "should be" FROM branch_stock WHERE branch_id = 1 AND drug_id = 4;
+ amoxicillin now | should be 
+-----------------+-----------
+             205 |       195
+(1 row)
+
+
+=== 2.5 FIX 1: subtract inside the UPDATE, so the row lock makes B wait
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 10 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+SELECT p3_demo.b_send('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 5 WHERE branch_id = 1 AND drug_id = 4') AS "session B";
+            session B            
+---------------------------------
+ sent: running in the background
+(1 row)
+
+SELECT pg_sleep(0.5);
+ pg_sleep 
+----------
+ 
+(1 row)
+
+SELECT * FROM p3_demo.who_waits();
+  session  | state  |     waiting_on      | blocked_by 
+-----------+--------+---------------------+------------
+ session_b | active | Lock: transactionid | session_a
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT p3_demo.b_wait() AS "session B finishes";
+ session B finishes 
+--------------------
+ UPDATE 1
+(1 row)
+
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |       64
+ Amoxicillin 500 mg |      190
+(2 rows)
+
+
+=== 2.6 FIX 2: SELECT ... FOR UPDATE when the program must read before it writes
+BEGIN;
+BEGIN
+SELECT quantity_in_stock AS a_qty FROM branch_stock WHERE branch_id = 1 AND drug_id = 4 FOR UPDATE 
+A read 190 and now holds the row lock
+SELECT p3_demo.b('BEGIN') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_send('SELECT quantity_in_stock FROM branch_stock WHERE branch_id = 1 AND drug_id = 4 FOR UPDATE') AS "session B";
+            session B            
+---------------------------------
+ sent: running in the background
+(1 row)
+
+SELECT pg_sleep(0.5);
+ pg_sleep 
+----------
+ 
+(1 row)
+
+SELECT * FROM p3_demo.who_waits();
+  session  | state  |     waiting_on      | blocked_by 
+-----------+--------+---------------------+------------
+ session_b | active | Lock: transactionid | session_a
+(1 row)
+
+UPDATE branch_stock SET quantity_in_stock = 190 - 10 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+COMMIT;
+COMMIT
+SELECT p3_demo.b_wait() AS b_qty 
+B read 180 only after A committed
+SELECT p3_demo.b(format('UPDATE branch_stock SET quantity_in_stock = %s WHERE branch_id = 1 AND drug_id = 4', 180 - 5)) AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+SELECT p3_demo.b('COMMIT') AS "session B";
+ session B 
+-----------
+ COMMIT
+(1 row)
+
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |       64
+ Amoxicillin 500 mg |      175
+(2 rows)
+
+
+=== 2.7 FIX 3: REPEATABLE READ refuses the second write, and B retries
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+BEGIN
+SELECT quantity_in_stock AS a_qty FROM branch_stock WHERE branch_id = 1 AND drug_id = 4 
+SELECT p3_demo.b('BEGIN ISOLATION LEVEL REPEATABLE READ') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT quantity_in_stock FROM branch_stock WHERE branch_id = 1 AND drug_id = 4') AS b_qty 
+A read 175 and B read 175
+UPDATE branch_stock SET quantity_in_stock = 175 - 10 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+COMMIT;
+COMMIT
+SELECT p3_demo.b(format('UPDATE branch_stock SET quantity_in_stock = %s WHERE branch_id = 1 AND drug_id = 4', 175 - 5)) AS "session B";
+                          session B                          
+-------------------------------------------------------------
+ ERROR:  could not serialize access due to concurrent update
+(1 row)
+
+SELECT p3_demo.b('ROLLBACK') AS "session B";
+ session B 
+-----------
+ ROLLBACK
+(1 row)
+
+B retries from the start:
+SELECT p3_demo.b('BEGIN ISOLATION LEVEL REPEATABLE READ') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT quantity_in_stock FROM branch_stock WHERE branch_id = 1 AND drug_id = 4') AS b_qty 
+B now reads 165
+SELECT p3_demo.b(format('UPDATE branch_stock SET quantity_in_stock = %s WHERE branch_id = 1 AND drug_id = 4', 165 - 5)) AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+SELECT p3_demo.b('COMMIT') AS "session B";
+ session B 
+-----------
+ COMMIT
+(1 row)
+
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |       64
+ Amoxicillin 500 mg |      160
+(2 rows)
+
+
+################################################################
+PART 3: DOUBLE-BOOKING AND WRITE SKEW
+################################################################
+Two receptionists book doctor 3 at 10:00 on 20 October for different patients.
+Each first checks the slot is free, then books it.
+CREATE TABLE p3_demo.slot_booking (doctor_id integer, scheduled_for timestamp, patient_id integer, status text);
+CREATE TABLE
+
+=== 3.1 With no rule in the database, at READ COMMITTED
+BEGIN;
+BEGIN
+SELECT count(*) AS "bookings A sees" FROM p3_demo.slot_booking WHERE doctor_id = 3 AND scheduled_for = '2026-10-20 10:00' AND status <> 'cancelled';
+ bookings A sees 
+-----------------
+               0
+(1 row)
+
+SELECT p3_demo.b('BEGIN') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT count(*) FROM p3_demo.slot_booking WHERE doctor_id = 3 AND scheduled_for = ''2026-10-20 10:00'' AND status <> ''cancelled''') AS "bookings B sees";
+ bookings B sees 
+-----------------
+ 0
+(1 row)
+
+INSERT INTO p3_demo.slot_booking VALUES (3, '2026-10-20 10:00', 300034, 'booked');
+INSERT 0 1
+SELECT p3_demo.b(format('INSERT INTO p3_demo.slot_booking VALUES (3, %L, %s, %L)', '2026-10-20 10:00', 300035, 'booked')) AS "session B";
+ session B  
+------------
+ INSERT 0 1
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT p3_demo.b('COMMIT') AS "session B";
+ session B 
+-----------
+ COMMIT
+(1 row)
+
+SELECT * FROM p3_demo.slot_booking ORDER BY patient_id;
+ doctor_id |    scheduled_for    | patient_id | status 
+-----------+---------------------+------------+--------
+         3 | 2026-10-20 10:00:00 |     300034 | booked
+         3 | 2026-10-20 10:00:00 |     300035 | booked
+(2 rows)
+
+
+=== 3.2 The same, at SERIALIZABLE
+TRUNCATE p3_demo.slot_booking;
+TRUNCATE TABLE
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+BEGIN
+SELECT count(*) AS "bookings A sees" FROM p3_demo.slot_booking WHERE doctor_id = 3 AND scheduled_for = '2026-10-20 10:00' AND status <> 'cancelled';
+ bookings A sees 
+-----------------
+               0
+(1 row)
+
+SELECT p3_demo.b('BEGIN ISOLATION LEVEL SERIALIZABLE') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT count(*) FROM p3_demo.slot_booking WHERE doctor_id = 3 AND scheduled_for = ''2026-10-20 10:00'' AND status <> ''cancelled''') AS "bookings B sees";
+ bookings B sees 
+-----------------
+ 0
+(1 row)
+
+INSERT INTO p3_demo.slot_booking VALUES (3, '2026-10-20 10:00', 300034, 'booked');
+INSERT 0 1
+SELECT p3_demo.b(format('INSERT INTO p3_demo.slot_booking VALUES (3, %L, %s, %L)', '2026-10-20 10:00', 300035, 'booked')) AS "session B";
+ session B  
+------------
+ INSERT 0 1
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT p3_demo.b('COMMIT') AS "session B";
+                                      session B                                       
+--------------------------------------------------------------------------------------
+ ERROR:  could not serialize access due to read/write dependencies among transactions+
+ DETAIL:  Reason code: Canceled on identification as a pivot, during commit attempt. +
+ HINT:  The transaction might succeed if retried.
+(1 row)
+
+SELECT * FROM p3_demo.slot_booking ORDER BY patient_id;
+ doctor_id |    scheduled_for    | patient_id | status 
+-----------+---------------------+------------+--------
+         3 | 2026-10-20 10:00:00 |     300034 | booked
+(1 row)
+
+
+=== 3.3 The real appointment table, protected by the Portfolio 1 index appointment_no_double_booking
+BEGIN;
+BEGIN
+INSERT INTO appointment (patient_id, doctor_id, branch_id, scheduled_for, booked_via, booked_by, status)
+VALUES (300034, 3, 1, '2026-10-20 10:00', 'reception', 19, 'booked');
+INSERT 0 1
+SELECT p3_demo.b_send(format('INSERT INTO appointment (patient_id, doctor_id, branch_id, scheduled_for, booked_via, booked_by, status) VALUES (%s, 3, 1, %L, %L, 20, %L)', 300035, '2026-10-20 10:00', 'reception', 'booked')) AS "session B";
+            session B            
+---------------------------------
+ sent: running in the background
+(1 row)
+
+SELECT pg_sleep(0.5);
+ pg_sleep 
+----------
+ 
+(1 row)
+
+SELECT * FROM p3_demo.who_waits();
+  session  | state  |     waiting_on      | blocked_by 
+-----------+--------+---------------------+------------
+ session_b | active | Lock: transactionid | session_a
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT p3_demo.b_wait() AS "session B finishes";
+                                   session B finishes                                   
+----------------------------------------------------------------------------------------
+ ERROR:  duplicate key value violates unique constraint "appointment_no_double_booking"+
+ DETAIL:  Key (doctor_id, scheduled_for)=(3, 2026-10-20 10:00:00) already exists.
+(1 row)
+
+SELECT a.patient_id, p.hospital_number, a.scheduled_for, a.status
+FROM appointment a JOIN patient p ON p.patient_id = a.patient_id
+WHERE a.doctor_id = 3 AND a.scheduled_for = '2026-10-20 10:00';
+ patient_id | hospital_number |    scheduled_for    | status 
+------------+-----------------+---------------------+--------
+     300034 | TH-DEMO0001     | 2026-10-20 10:00:00 | booked
+(1 row)
+
+
+=== 3.4 WRITE SKEW: doctors on call
+Rule: Ilorin must always have at least one doctor on call tonight.
+Doctors 3 and 4 are both on call, and each asks to go off call at the same time.
+CREATE TABLE p3_demo.on_call (branch_id integer, doctor_id integer, on_call boolean NOT NULL, PRIMARY KEY (branch_id, doctor_id));
+CREATE TABLE
+INSERT INTO p3_demo.on_call VALUES (1, 3, true), (1, 4, true);
+INSERT 0 2
+
+--- At REPEATABLE READ
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+BEGIN
+SELECT count(*) AS "on call, seen by A" FROM p3_demo.on_call WHERE branch_id = 1 AND on_call;
+ on call, seen by A 
+--------------------
+                  2
+(1 row)
+
+SELECT p3_demo.b('BEGIN ISOLATION LEVEL REPEATABLE READ') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT count(*) FROM p3_demo.on_call WHERE branch_id = 1 AND on_call') AS "on call, seen by B";
+ on call, seen by B 
+--------------------
+ 2
+(1 row)
+
+UPDATE p3_demo.on_call SET on_call = false WHERE branch_id = 1 AND doctor_id = 3;
+UPDATE 1
+SELECT p3_demo.b('UPDATE p3_demo.on_call SET on_call = false WHERE branch_id = 1 AND doctor_id = 4') AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT p3_demo.b('COMMIT') AS "session B";
+ session B 
+-----------
+ COMMIT
+(1 row)
+
+SELECT count(*) AS "doctors on call now" FROM p3_demo.on_call WHERE branch_id = 1 AND on_call;
+ doctors on call now 
+---------------------
+                   0
+(1 row)
+
+UPDATE p3_demo.on_call SET on_call = true;
+UPDATE 2
+
+--- At SERIALIZABLE
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+BEGIN
+SELECT count(*) AS "on call, seen by A" FROM p3_demo.on_call WHERE branch_id = 1 AND on_call;
+ on call, seen by A 
+--------------------
+                  2
+(1 row)
+
+SELECT p3_demo.b('BEGIN ISOLATION LEVEL SERIALIZABLE') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT count(*) FROM p3_demo.on_call WHERE branch_id = 1 AND on_call') AS "on call, seen by B";
+ on call, seen by B 
+--------------------
+ 2
+(1 row)
+
+UPDATE p3_demo.on_call SET on_call = false WHERE branch_id = 1 AND doctor_id = 3;
+UPDATE 1
+SELECT p3_demo.b('UPDATE p3_demo.on_call SET on_call = false WHERE branch_id = 1 AND doctor_id = 4') AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT p3_demo.b('COMMIT') AS "session B";
+                                      session B                                       
+--------------------------------------------------------------------------------------
+ ERROR:  could not serialize access due to read/write dependencies among transactions+
+ DETAIL:  Reason code: Canceled on identification as a pivot, during commit attempt. +
+ HINT:  The transaction might succeed if retried.
+(1 row)
+
+B retries from the start:
+SELECT p3_demo.b('BEGIN ISOLATION LEVEL SERIALIZABLE') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_value('SELECT count(*) FROM p3_demo.on_call WHERE branch_id = 1 AND on_call') AS "on call, seen by B on retry";
+ on call, seen by B on retry 
+-----------------------------
+ 1
+(1 row)
+
+Only one doctor is on call, so B's request is refused and B rolls back.
+SELECT p3_demo.b('ROLLBACK') AS "session B";
+ session B 
+-----------
+ ROLLBACK
+(1 row)
+
+SELECT doctor_id, on_call FROM p3_demo.on_call ORDER BY doctor_id;
+ doctor_id | on_call 
+-----------+---------
+         3 | f
+         4 | t
+(2 rows)
+
+
+################################################################
+PART 4: DEADLOCK
+################################################################
+A: the head of pharmacy records a delivery of both drugs, paracetamol first.
+B: a pharmacist dispenses both drugs, amoxicillin first.
+
+=== 4.1 Opposite order
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock + 100 WHERE branch_id = 1 AND drug_id = 1;
+UPDATE 1
+SELECT p3_demo.b('BEGIN') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 10 WHERE branch_id = 1 AND drug_id = 4') AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+SELECT p3_demo.b_send('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 18 WHERE branch_id = 1 AND drug_id = 1') AS "session B";
+            session B            
+---------------------------------
+ sent: running in the background
+(1 row)
+
+SELECT pg_sleep(0.3);
+ pg_sleep 
+----------
+ 
+(1 row)
+
+SELECT * FROM p3_demo.who_waits();
+  session  | state  |     waiting_on      | blocked_by 
+-----------+--------+---------------------+------------
+ session_b | active | Lock: transactionid | session_a
+(1 row)
+
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock + 100 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+SELECT p3_demo.b_wait() AS "session B finishes";
+                                 session B finishes                                  
+-------------------------------------------------------------------------------------
+ ERROR:  deadlock detected                                                          +
+ DETAIL:  Process 82 waits for ShareLock on transaction 1926; blocked by process 81.+
+ Process 81 waits for ShareLock on transaction 1927; blocked by process 82.         +
+ HINT:  See server log for query details.                                           +
+ CONTEXT:  while updating tuple (1,127) in relation "branch_stock"
+(1 row)
+
+SELECT p3_demo.b('ROLLBACK') AS "session B";
+ session B 
+-----------
+ ROLLBACK
+(1 row)
+
+COMMIT;
+COMMIT
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |      164
+ Amoxicillin 500 mg |      260
+(2 rows)
+
+
+=== 4.2 Fix: every transaction updates stock rows in the same order (lowest drug_id first)
+BEGIN;
+BEGIN
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock + 100 WHERE branch_id = 1 AND drug_id = 1;
+UPDATE 1
+SELECT p3_demo.b('BEGIN') AS "session B";
+ session B 
+-----------
+ BEGIN
+(1 row)
+
+SELECT p3_demo.b_send('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 18 WHERE branch_id = 1 AND drug_id = 1') AS "session B";
+            session B            
+---------------------------------
+ sent: running in the background
+(1 row)
+
+SELECT pg_sleep(0.3);
+ pg_sleep 
+----------
+ 
+(1 row)
+
+SELECT * FROM p3_demo.who_waits();
+  session  | state  |     waiting_on      | blocked_by 
+-----------+--------+---------------------+------------
+ session_b | active | Lock: transactionid | session_a
+(1 row)
+
+UPDATE branch_stock SET quantity_in_stock = quantity_in_stock + 100 WHERE branch_id = 1 AND drug_id = 4;
+UPDATE 1
+COMMIT;
+COMMIT
+SELECT p3_demo.b_wait() AS "session B finishes";
+ session B finishes 
+--------------------
+ UPDATE 1
+(1 row)
+
+SELECT p3_demo.b('UPDATE branch_stock SET quantity_in_stock = quantity_in_stock - 10 WHERE branch_id = 1 AND drug_id = 4') AS "session B";
+ session B 
+-----------
+ UPDATE 1
+(1 row)
+
+SELECT p3_demo.b('COMMIT') AS "session B";
+ session B 
+-----------
+ COMMIT
+(1 row)
+
+SELECT * FROM p3_demo.stock();
+        drug        | in_stock 
+--------------------+----------
+ Paracetamol 500 mg |      246
+ Amoxicillin 500 mg |      350
+(2 rows)
+
+
+################################################################
+CLEANUP: restoring the stock levels and removing the demo rows
+################################################################
+ session_b_disconnected 
+------------------------
+ OK
+(1 row)
+
+ patients | visits  | appointments | restock_requests 
+----------+---------+--------------+------------------
+   300000 | 1168000 |       759584 |             1769
+(1 row)
+
+Done.

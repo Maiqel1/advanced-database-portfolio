@@ -1,0 +1,39 @@
+﻿=== DURABILITY TEST: a committed row survives a crash, an uncommitted row does not
+
+1. Session 1 begins a transaction, inserts a row, and waits without committing
+
+2. Session 2 inserts a row and commits
+ id |              note               
+----+---------------------------------
+  2 | committed just before the crash
+(1 row)
+
+INSERT 0 1
+3. Session 1 is still open, holding its uncommitted row
+ pid | state  | in_transaction |                                 query                                  
+-----+--------+----------------+------------------------------------------------------------------------
+  76 | active | t              | BEGIN; INSERT INTO public.durability_test (note) VALUES ('inserted but
+(1 row)
+
+4. Rows other sessions can see before the crash
+ id |              note               
+----+---------------------------------
+  2 | committed just before the crash
+(1 row)
+
+5. Crash: docker kill stops PostgreSQL instantly (SIGKILL), with no chance to shut down cleanly
+
+6. Rows after the restart
+ id |              note               
+----+---------------------------------
+  2 | committed just before the crash
+(1 row)
+
+7. What PostgreSQL logged as it started up again
+2026-10-18 16:07:08.783 UTC [29] LOG:  database system was interrupted; last known up at 2026-10-18 16:06:45 UTC
+2026-10-18 16:07:09.228 UTC [29] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-10-18 16:07:09.236 UTC [29] LOG:  redo starts at 5/5B4DF788
+2026-10-18 16:07:09.239 UTC [29] LOG:  redo done at 5/5B5103D8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-10-18 16:07:09.312 UTC [1] LOG:  database system is ready to accept connections
+
+Done.
