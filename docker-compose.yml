@@ -13,6 +13,21 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./:/portfolio:ro
+      - exchange:/exchange
+
+  mongo:
+    image: mongo:8.0
+    container_name: hospital-mongo
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodata:/data/db
+      - ./:/portfolio:ro
+      - exchange:/exchange
 
 volumes:
   pgdata:
+  mongodata:
+  exchange:
