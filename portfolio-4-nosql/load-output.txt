@@ -1,0 +1,28 @@
+﻿=== 1. Starting PostgreSQL and MongoDB
+ Container hospital-mongo Running 
+ Container hospital-postgres Running 
+
+=== 2. Exporting September 2026 from PostgreSQL
+Exporting September 2026 from PostgreSQL to /exchange as JSON documents...
+  visits
+  patients
+  reference data
+ visits_exported | patients_exported 
+-----------------+-------------------
+           95845 |             81832
+(1 row)
+
+
+=== 3. Setting up MongoDB: replica set, collections and validators
+Replica set rs0 is ready; this member is hospital-mongo:27017
+Collections created: branchStock, branches, drugs, labTests, patients, visits
+
+=== 4. Importing into MongoDB (every document is checked against its validator)
+  branches     16 document(s) imported successfully. 0 document(s) failed to import.
+  drugs        18 document(s) imported successfully. 0 document(s) failed to import.
+  labTests     8 document(s) imported successfully. 0 document(s) failed to import.
+  branchStock  288 document(s) imported successfully. 0 document(s) failed to import.
+  patients     81832 document(s) imported successfully. 0 document(s) failed to import.
+  visits       95845 document(s) imported successfully. 0 document(s) failed to import.
+
+Finished in 101 seconds

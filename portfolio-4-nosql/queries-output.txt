@@ -1,0 +1,195 @@
+
+######################################################################
+PORTFOLIO 4: THE TOMIWA HOSPITALS DOCUMENT MODEL IN MONGODB 8.0.34
+######################################################################
+
+=== What was loaded from PostgreSQL (September 2026)
+collection  | documents | average_document_bytes | data_mb | stored_mb_compressed
+------------+-----------+------------------------+---------+---------------------
+visits      | 95845     | 2772                   | 253.4   | 77.5                
+patients    | 81832     | 340                    | 26.5    | 9.6                 
+branches    | 16        | 144                    | 0.0     | 0.0                 
+drugs       | 18        | 95                     | 0.0     | 0.0                 
+labTests    | 8         | 284                    | 0.0     | 0.0                 
+branchStock | 288       | 125                    | 0.0     | 0.1                 
+(6 rows)
+
+=== Inputs
+patient                            | name_searched | lab_report_visit | takings           
+-----------------------------------+---------------+------------------+-------------------
+TH-0014559 (5 visits in September) | folake mamman | 1124722          | Ikeja, 15 Sep 2026
+(1 rows)
+
+######################################################################
+PART 1: THE QUERIES AND THEIR RESULTS
+######################################################################
+
+=== M1: Patient history (one collection, no joins)
+checked_in_wat   | branch                  | doctor           | final_diagnosis                                                           
+-----------------+-------------------------+------------------+---------------------------------------------------------------------------
+2026-09-30 16:51 | Tomiwa Hospitals Kano   | Adebayo Ogunleye | I10 Essential (primary) hypertension                                      
+2026-09-25 16:19 | Tomiwa Hospitals Ilorin | Emeka Umar       | I10 Essential (primary) hypertension                                      
+2026-09-21 13:24 | Tomiwa Hospitals Ikeja  | Kunle Usman      | A09 Other gastroenteritis and colitis of infectious and unspecified origin
+2026-09-04 10:27 | Tomiwa Hospitals Ilorin | Ebere Oladipo    | I10 Essential (primary) hypertension                                      
+2026-09-03 09:50 | Tomiwa Hospitals Ilorin | Ebere Oladipo    | E11.9 Type 2 diabetes mellitus without complications                      
+(5 rows)
+
+=== M2: Lab report for visit 1124722 (the high/low flag is worked out as the report is read)
+test                   | measurement        | result   | unit    | flag
+-----------------------+--------------------+----------+---------+-----
+Full blood count (FBC) | Haemoglobin        | 12.5     | g/dL    |     
+Full blood count (FBC) | White blood cells  | 10.6     | x10^9/L |     
+Full blood count (FBC) | Platelets          | 312.6    | x10^9/L |     
+Full blood count (FBC) | Packed cell volume | 38.9     | %       |     
+Full blood count (FBC) | Neutrophils        | 36.7     | %       | LOW 
+Full blood count (FBC) | Lymphocytes        | 33.9     | %       |     
+Urinalysis             | Urine protein      | Negative |         |     
+Urinalysis             | Urine glucose      | Negative |         |     
+Urinalysis             | Urine leucocytes   | Negative |         |     
+Urinalysis             | Urine nitrites     | Negative |         |     
+Urinalysis             | Urine pH           | 6.2      |         |     
+Urinalysis             | Specific gravity   | 1.021    |         |     
+Fasting blood sugar    | Glucose (fasting)  | 3.9      | mmol/L  |     
+(13 rows)
+
+=== M3: Daily takings at Ikeja on 15 September 2026
+amount  | method   | payments
+--------+----------+---------
+999010  | card     | 154     
+1573985 | cash     | 299     
+1836700 | transfer | 296     
+(3 rows)
+
+=== M4: States with at least 1,500 confirmed malaria cases in September 2026
+cases | state  | month  
+------+--------+--------
+1538  | Edo    | 2026-09
+1508  | Enugu  | 2026-09
+1808  | Kano   | 2026-09
+2039  | Kwara  | 2026-09
+2454  | Lagos  | 2026-09
+1844  | Oyo    | 2026-09
+1853  | Rivers | 2026-09
+(7 rows)
+
+=== M5: Patients named "folake mamman" (typed in lower case; the match ignores case)
+hospital_number | first_name | last_name | date_of_birth | phone        
+----------------+------------+-----------+---------------+--------------
+TH-0014559      | Folake     | Mamman    | 1999-06-08    | 0800 017 1216
+TH-0018431      | Folake     | Mamman    | 1951-07-05    | 0800 349 4169
+TH-0040024      | Folake     | Mamman    | 1949-08-18    | 0800 169 7533
+TH-0045043      | Folake     | Mamman    | 1998-10-20    | 0800 672 9072
+TH-0054637      | Folake     | Mamman    | 2025-02-11    | 0800 394 3562
+TH-0180733      | Folake     | Mamman    | 1941-01-26    | 0800 871 4796
+TH-0201309      | Folake     | Mamman    | 2014-01-24    | 0800 836 9755
+TH-0228958      | Folake     | Mamman    | 1977-12-13    | 0800 647 3732
+TH-0255932      | Folake     | Mamman    | 2004-09-30    | 0800 510 5537
+TH-0256445      | Folake     | Mamman    | 1956-10-15    | 0800 630 2185
+TH-0268027      | Folake     | Mamman    | 2008-03-20    | 0800 359 8373
+(11 rows)
+
+=== M6: Visits in September with a haemoglobin result below 8 g/dL
+1204 visits. The first five:
+visit   | patient    | branch                         | checked_in_wat  
+--------+------------+--------------------------------+-----------------
+1072740 | TH-0089211 | Tomiwa Hospitals Ilorin        | 2026-09-01 08:44
+1072884 | TH-0096056 | Tomiwa Hospitals Enugu         | 2026-09-01 09:00
+1073072 | TH-0041237 | Tomiwa Hospitals Port Harcourt | 2026-09-01 09:19
+1073457 | TH-0173758 | Tomiwa Hospitals Port Harcourt | 2026-09-01 09:57
+1073498 | TH-0078832 | Tomiwa Hospitals Benin City    | 2026-09-01 10:01
+(5 rows)
+
+######################################################################
+PART 2: BEFORE INDEXING (only the automatic _id and hospitalNumber indexes exist)
+######################################################################
+id | median_ms | docs_examined | keys_examined | plan                                
+---+-----------+---------------+---------------+-------------------------------------
+M1 | 69.02     | 95845         | 0             | PROJECTION_DEFAULT < SORT < COLLSCAN
+M2 | 3.95      | 1             | 1             | EXPRESS_IXSCAN (_id_)               
+M3 | 74.96     | 95845         | 0             | PROJECTION_SIMPLE < COLLSCAN        
+M4 | 97.59     | 95845         | 0             | GROUP < COLLSCAN                    
+M5 | 50.22     | 81832         | 0             | COLLSCAN                            
+M6 | 170.81    | 95845         | 0             | PROJECTION_DEFAULT < COLLSCAN       
+(6 rows)
+
+######################################################################
+PART 3: CREATING INDEXES
+######################################################################
+Five indexes built in 3.0 seconds:
+collection | name                  | keys                                                                 | collation     
+-----------+-----------------------+----------------------------------------------------------------------+---------------
+visits     | _id_                  | {"_id":1}                                                            |               
+visits     | patient_history       | {"patient.id":1,"checkedInAt":-1}                                    |               
+visits     | branch_day            | {"branch.id":1,"checkedInAt":1}                                      |               
+visits     | diagnosis_code        | {"diagnoses.code":1,"diagnoses.kind":1}                              |               
+visits     | lab_result_value      | {"labOrders.tests.results.name":1,"labOrders.tests.results.value":1} |               
+patients   | _id_                  | {"_id":1}                                                            |               
+patients   | hospitalNumber_1      | {"hospitalNumber":1}                                                 |               
+patients   | name_case_insensitive | {"lastName":1,"firstName":1}                                         | en, strength 2
+(8 rows)
+
+######################################################################
+PART 4: AFTER INDEXING
+######################################################################
+id | median_ms | docs_examined | keys_examined | plan                                                  
+---+-----------+---------------+---------------+-------------------------------------------------------
+M1 | 3.11      | 5             | 5             | PROJECTION_DEFAULT < FETCH < IXSCAN (patient_history) 
+M2 | 5.05      | 1             | 1             | EXPRESS_IXSCAN (_id_)                                 
+M3 | 7.34      | 321           | 321           | PROJECTION_SIMPLE < FETCH < IXSCAN (branch_day)       
+M4 | 81.82     | 24091         | 24091         | GROUP < FETCH < IXSCAN (diagnosis_code)               
+M5 | 2.41      | 11            | 11            | FETCH < IXSCAN (name_case_insensitive)                
+M6 | 26.50     | 1204          | 1204          | PROJECTION_DEFAULT < FETCH < IXSCAN (lab_result_value)
+(6 rows)
+
+=== Summary (median of 5 runs)
+id | query                                | before_ms | after_ms | docs_before | docs_after
+---+--------------------------------------+-----------+----------+-------------+-----------
+M1 | Patient history                      | 69.02     | 3.11     | 95845       | 5         
+M2 | Lab report for one visit             | 3.95      | 5.05     | 1           | 1         
+M3 | Daily takings at Ikeja               | 74.96     | 7.34     | 95845       | 321       
+M4 | Confirmed malaria per state          | 97.59     | 81.82    | 95845       | 24091     
+M5 | Find a patient by name               | 50.22     | 2.41     | 81832       | 11        
+M6 | Visits with haemoglobin below 8 g/dL | 170.81    | 26.50    | 95845       | 1204      
+(6 rows)
+
+######################################################################
+PART 5: VALIDATION AND FLEXIBILITY
+######################################################################
+
+=== V1 to V3: documents that break the rules are rejected
+V1 a visit with no patient: REJECTED, DocumentValidationFailure (code 121)
+    document: missing patient
+V2 a diagnosis whose kind is not provisional or final: REJECTED, DocumentValidationFailure (code 121)
+    diagnoses[0].kind: value was not found in enum (got "maybe")
+V3 a lab result whose value is true/false: REJECTED, DocumentValidationFailure (code 121)
+    labOrders[0].tests[0].results[0].value: type did not match (got true)
+
+=== V4: a new kind of lab test, plus a field no other visit has, needs no schema change
+V4 a visit with a rapid antigen test and a referral: ACCEPTED
+Stored as: {"referral":{"to":"University teaching hospital","reason":"Specialist review","writtenAt":{"$date":"2026-09-30T10:00:00Z"}},"newestLabOrder":{"orderId":9000001,"orderedAt":{"$date":"2026-09-30T09:00:00Z"},"tests":[{"testId":99,"name":"SARS-CoV-2 rapid antigen","sampleType":"nasal swab","results":[{"name":"Antigen","value":"Not detected"},{"name":"Kit lot","value":"AG-2026-114"}]}]}}
+
+######################################################################
+PART 6: ATOMICITY
+######################################################################
+
+=== A1: one update changes two parts of a visit together, with no transaction needed
+updateOne matched 1, modified 1: now 2 vitals readings and status "with_doctor"
+An update that sets status to "on_lunch" is REJECTED (DocumentValidationFailure), so its vitals reading is not added either:
+still 2 vitals readings and status "with_doctor"
+
+=== T1: dispensing touches two documents, the visit and the stock record, so it needs a transaction
+Paracetamol 500 mg tablet: Ilorin stock 31174, prescription line not dispensed
+Dispense 18: COMMITTED. Stock 31156, line dispensed
+Dispense 32156: ABORTED: not enough stock, so nothing was changed. Stock 31156, line not dispensed
+Clean-up: stock put back to 31174 and the test visit removed.
+
+######################################################################
+PART 7: STORAGE AND INDEX SIZES
+######################################################################
+collection | documents | data_mb | stored_mb | index_mb | indexes                                                                                               
+-----------+-----------+---------+-----------+----------+-------------------------------------------------------------------------------------------------------
+visits     | 95845     | 253.4   | 77.5      | 8.8      | _id_ 2.5 MB, patient_history 1.7 MB, branch_day 1.0 MB, diagnosis_code 0.8 MB, lab_result_value 2.7 MB
+patients   | 81832     | 26.5    | 9.6       | 7.3      | _id_ 2.1 MB, hospitalNumber_1 4.3 MB, name_case_insensitive 0.8 MB                                    
+(2 rows)
+
+Done.
