@@ -1,0 +1,103 @@
+﻿
+######################################################################
+SETUP: two branch databases, each with its own amoxicillin stock
+######################################################################
+  stock at site_ikeja: 900
+  stock at site_ilorin: 40
+
+######################################################################
+CASE 1: Ikeja sends 300 to Ilorin, and both sites vote yes
+######################################################################
+Phase 1, prepare: each site does its part and promises it can commit
+  Ikeja:
+    BEGIN
+    BEGIN
+    UPDATE stock SET quantity = quantity - 300 WHERE drug = 'Amoxicillin 500 mg capsule'
+    UPDATE 1
+    PREPARE TRANSACTION 'transfer-1-ikeja'
+    PREPARE TRANSACTION
+  Ilorin:
+    BEGIN
+    BEGIN
+    UPDATE stock SET quantity = quantity + 300 WHERE drug = 'Amoxicillin 500 mg capsule'
+    UPDATE 1
+    PREPARE TRANSACTION 'transfer-1-ilorin'
+    PREPARE TRANSACTION
+  Prepared transactions waiting for a decision:
+    transfer-1-ikeja in site_ikeja
+    transfer-1-ilorin in site_ilorin
+Phase 2, commit: both voted yes, so the coordinator tells both to commit
+    COMMIT PREPARED 'transfer-1-ikeja'
+    COMMIT PREPARED
+    COMMIT PREPARED 'transfer-1-ilorin'
+    COMMIT PREPARED
+  stock at site_ikeja: 600
+  stock at site_ilorin: 340
+
+######################################################################
+CASE 2: Ikeja is asked to send 700 but holds only 600, so it votes no
+######################################################################
+  Ilorin prepares first:
+    BEGIN
+    BEGIN
+    UPDATE stock SET quantity = quantity + 700 WHERE drug = 'Amoxicillin 500 mg capsule'
+    UPDATE 1
+    PREPARE TRANSACTION 'transfer-2-ilorin'
+    PREPARE TRANSACTION
+  Ikeja cannot do its part:
+    BEGIN
+    BEGIN
+    UPDATE stock SET quantity = quantity - 700 WHERE drug = 'Amoxicillin 500 mg capsule'
+    ERROR:  new row for relation "stock" violates check constraint "stock_quantity_check"
+    DETAIL:  Failing row contains (Amoxicillin 500 mg capsule, -100).
+    PREPARE TRANSACTION 'transfer-2-ikeja'
+    ROLLBACK
+  Prepared transactions waiting for a decision:
+    transfer-2-ilorin in site_ilorin
+One site voted no, so the coordinator tells Ilorin to roll back its prepared part:
+    ROLLBACK PREPARED 'transfer-2-ilorin'
+    ROLLBACK PREPARED
+  stock at site_ikeja: 600
+  stock at site_ilorin: 340
+
+######################################################################
+CASE 3: the server crashes after both sites have prepared
+######################################################################
+    BEGIN
+    BEGIN
+    UPDATE stock SET quantity = quantity - 100 WHERE drug = 'Amoxicillin 500 mg capsule'
+    UPDATE 1
+    PREPARE TRANSACTION 'transfer-3-ikeja'
+    PREPARE TRANSACTION
+    BEGIN
+    BEGIN
+    UPDATE stock SET quantity = quantity + 100 WHERE drug = 'Amoxicillin 500 mg capsule'
+    UPDATE 1
+    PREPARE TRANSACTION 'transfer-3-ilorin'
+    PREPARE TRANSACTION
+Both sites have voted yes. Before the coordinator sends its decision, PostgreSQL is killed:
+After the restart, the prepared transactions are still there, waiting:
+  Prepared transactions waiting for a decision:
+    transfer-3-ikeja in site_ikeja
+    transfer-3-ilorin in site_ilorin
+  stock at site_ikeja: 600
+  stock at site_ilorin: 340
+They still hold their row locks, so Ikeja's pharmacy cannot dispense amoxicillin until the decision arrives:
+    SET lock_timeout = '3s'
+    SET
+    UPDATE stock SET quantity = quantity - 1 WHERE drug = 'Amoxicillin 500 mg capsule'
+    ERROR:  canceling statement due to lock timeout
+    CONTEXT:  while updating tuple (0,2) in relation "stock"
+The coordinator recovers, reads its log showing both sites voted yes, and finishes the commit:
+    COMMIT PREPARED 'transfer-3-ikeja'
+    COMMIT PREPARED
+    COMMIT PREPARED 'transfer-3-ilorin'
+    COMMIT PREPARED
+  Prepared transactions waiting for a decision:
+  stock at site_ikeja: 500
+  stock at site_ilorin: 440
+
+######################################################################
+CLEAN-UP
+######################################################################
+Both test databases removed.

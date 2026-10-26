@@ -1,0 +1,46 @@
+SHARD KEY ANALYSIS FOR THE visits COLLECTION (September 2026, 95,845 visits)
+
+1. Visits per branch, with the zone and proposed shard each would belong to
+branch        | state   | zone          | shard           | visits | share
+--------------+---------+---------------+-----------------+--------+------
+Ikeja         | Lagos   | South West    | shard-southwest | 9648   | 10.1%
+Ilorin        | Kwara   | North Central | shard-north     | 7903   | 8.2% 
+Ibadan        | Oyo     | South West    | shard-southwest | 7394   | 7.7% 
+Port Harcourt | Rivers  | South South   | shard-south     | 7256   | 7.6% 
+Kano          | Kano    | North West    | shard-north     | 7164   | 7.5% 
+Benin City    | Edo     | South South   | shard-south     | 6127   | 6.4% 
+Enugu         | Enugu   | South East    | shard-south     | 6100   | 6.4% 
+Kaduna        | Kaduna  | North West    | shard-north     | 5976   | 6.2% 
+Abeokuta      | Ogun    | South West    | shard-southwest | 5355   | 5.6% 
+Awka          | Anambra | South East    | shard-south     | 4922   | 5.1% 
+Jos           | Plateau | North Central | shard-north     | 4908   | 5.1% 
+Akure         | Ondo    | South West    | shard-southwest | 4869   | 5.1% 
+Osogbo        | Osun    | South West    | shard-southwest | 4850   | 5.1% 
+Asaba         | Delta   | South South   | shard-south     | 4816   | 5.0% 
+Lokoja        | Kogi    | North Central | shard-north     | 4369   | 4.6% 
+Minna         | Niger   | North Central | shard-north     | 4188   | 4.4% 
+
+2. Candidate A: zone sharding on { branch.id, checkedInAt }, three shards by region
+shard           | visits | share
+----------------+--------+------
+shard-north     | 34508  | 36.0%
+shard-south     | 29221  | 30.5%
+shard-southwest | 32116  | 33.5%
+
+3. Candidate B: a hashed key on patient.id, three shards
+hash_bucket | visits | share
+------------+--------+------
+0           | 32023  | 33.4%
+1           | 31941  | 33.3%
+2           | 31881  | 33.3%
+
+4. Candidate C: a range key on _id (visit numbers grow with time)
+The 3204 visits on 30 September have _id values 1164797 to 1168000: one unbroken range at the top.
+With range sharding on _id, every new visit would land in the highest chunk, so one shard would take all the writes.
+
+5. How often a patient's September history spans more than one shard under Candidate A
+measure                                 | value      
+----------------------------------------+------------
+patients with a September visit         | 81832      
+visited more than one branch            | 3406 (4.2%)
+visited branches on more than one shard | 2457 (3.0%)

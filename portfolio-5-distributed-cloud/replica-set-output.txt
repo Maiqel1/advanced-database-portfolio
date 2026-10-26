@@ -1,0 +1,12 @@
+hospital-mongo:27017 given election priority 2, so it is preferred as primary whenever it is healthy
+All three members are ready after 0 seconds of waiting
+
+Replica set rs0: majority needed for writes = 2 of 3 voting members
+  hospital-mongo:27017     PRIMARY    priority 2  health 1  last write applied 2026-10-23T23:55:04.000Z  (0 ms behind the primary)
+  hospital-mongo-2:27017   SECONDARY  priority 1  health 1  last write applied 2026-10-23T23:55:04.000Z  (0 ms behind the primary)
+  hospital-mongo-3:27017   SECONDARY  priority 1  health 1  last write applied 2026-10-23T23:55:04.000Z  (0 ms behind the primary)
+
+Visits held on each member (every member stores a full copy):
+  hospital-mongo:27017     95845 visits, 81832 patients
+  hospital-mongo-2:27017   95845 visits, 81832 patients
+  hospital-mongo-3:27017   95845 visits, 81832 patients

@@ -1,0 +1,103 @@
+﻿
+######################################################################
+PART 1: REPLICATION
+######################################################################
+Members as seen from hospital-mongo-2:27017:
+  hospital-mongo:27017     PRIMARY
+  hospital-mongo-2:27017   SECONDARY
+  hospital-mongo-3:27017   SECONDARY
+
+How long a write takes to be acknowledged (median of 5 inserts):
+  w: 1           5.38 ms   confirmed by the primary alone
+  w: majority   12.76 ms   confirmed by the primary and one secondary
+  w: 3           8.47 ms   confirmed by all three members
+
+How long a w: 1 write takes to appear on each secondary:
+  hospital-mongo-2:27017   after 34.8 ms
+  hospital-mongo-3:27017   after 60.3 ms
+
+######################################################################
+PART 2: READING FROM A SECONDARY CAN GIVE AN OUT-OF-DATE ANSWER
+######################################################################
+Ilorin's amoxicillin stock is 638 on every member.
+hospital-mongo-2:27017 is frozen with fsyncLock, so it stops applying new writes (as if its link were slow).
+A pharmacist dispenses 15. The update is confirmed by a majority (the primary and hospital-mongo-3:27017).
+  Read from the primary hospital-mongo:27017     623
+  Read from the secondary hospital-mongo-3:27017 623
+  Read from the frozen secondary hospital-mongo-2:27017 638   <- out of date
+After unfreezing, hospital-mongo-2:27017 catches up and reads 623.
+
+######################################################################
+PART 3: AUTOMATIC FAILOVER WHEN THE PRIMARY CRASHES
+######################################################################
+Killing hospital-mongo, the primary, with docker kill (a crash, not a clean shutdown)
+New primary: hospital-mongo-2:27017, found 8.5 s after this check started
+A w: majority write through the normal replica set connection succeeded in 665 ms
+Members as seen from hospital-mongo-2:27017:
+  hospital-mongo:27017     (not reachable)
+  hospital-mongo-2:27017   PRIMARY
+  hospital-mongo-3:27017   SECONDARY
+Time from the kill until a write succeeded again: 14.0 s
+
+Restarting hospital-mongo
+Members as seen from hospital-mongo:27017:
+  hospital-mongo:27017     PRIMARY
+  hospital-mongo-2:27017   SECONDARY
+  hospital-mongo-3:27017   SECONDARY
+
+######################################################################
+PART 4: LOSING THE MAJORITY
+######################################################################
+Stopping both secondaries: hospital-mongo-2 and hospital-mongo-3. Only hospital-mongo is left.
+hospital-mongo:27017 stepped down to SECONDARY 8.6 s after this check started: it can no longer reach a majority.
+A write is REFUSED (MongoServerSelectionError): no member is primary, so nothing can accept it
+A read from this member still works: amoxicillin stock 623 (possibly out of date, since nothing can be confirmed)
+Members as seen from hospital-mongo:27017:
+  hospital-mongo:27017     SECONDARY
+  hospital-mongo-2:27017   (not reachable)
+  hospital-mongo-3:27017   (not reachable)
+
+Starting the two secondaries again
+New primary: hospital-mongo:27017, found 0.2 s after this check started
+A w: majority write through the normal replica set connection succeeded in 44 ms
+Members as seen from hospital-mongo:27017:
+  hospital-mongo:27017     PRIMARY
+  hospital-mongo-2:27017   SECONDARY
+  hospital-mongo-3:27017   SECONDARY
+
+######################################################################
+PART 5: A NETWORK PARTITION AND WHY w: majority MATTERS
+######################################################################
+Disconnecting hospital-mongo, the primary, from the network
+hospital-mongo:27017 is cut off from the other two members, but still believes it is PRIMARY.
+Insert with w: 1        -> ACKNOWLEDGED (only this member has it)
+Insert with w: majority -> NOT acknowledged within 5 s: waiting for replication timed out
+hospital-mongo:27017 stepped down to SECONDARY 2.9 s later.
+Documents on the isolated member: ilorin-amoxicillin, lag-probe, majority-during-partition, w1-during-partition, warm-up, written-after-crash, written-after-majority-returned
+
+On the majority side, hospital-mongo-2:27017 is the new primary.
+Insert with w: majority -> ACKNOWLEDGED by the new primary and the other member
+Documents on the majority side: ilorin-amoxicillin, lag-probe, warm-up, written-after-crash, written-after-majority-returned, written-to-new-primary
+
+Reconnecting hospital-mongo
+hospital-mongo:27017 rejoined and is now SECONDARY, 0.3 s after the network came back.
+Documents on this member now: ilorin-amoxicillin, lag-probe, warm-up, written-after-crash, written-after-majority-returned, written-to-new-primary
+Documents on the primary:     ilorin-amoxicillin, lag-probe, warm-up, written-after-crash, written-after-majority-returned, written-to-new-primary
+Members as seen from hospital-mongo:27017:
+  hospital-mongo:27017     SECONDARY
+  hospital-mongo-2:27017   PRIMARY
+  hospital-mongo-3:27017   SECONDARY
+
+Rollback files kept by hospital-mongo (the writes it had to undo):
+  /data/db/rollback/a18f9947-0469-44ac-ba35-e62acf9592af/removed.2026-10-24T00-03-13.0.bson
+    {"_id":"w1-during-partition","note":"confirmed by the isolated primary alone"}
+    {"_id":"majority-during-partition","note":"asked for a majority"}
+
+######################################################################
+CLEAN-UP
+######################################################################
+Test collection removed.
+Members as seen from hospital-mongo-2:27017:
+  hospital-mongo:27017     PRIMARY
+  hospital-mongo-2:27017   SECONDARY
+  hospital-mongo-3:27017   SECONDARY
