@@ -2,6 +2,26 @@
 
 MIT 8103 Advanced Database Systems · 2026/2027 First Semester Continuous Assessment
 
+## Portfolios
+
+| Folder | Activity | Main evidence |
+|---|---|---|
+| [portfolio-1-database-design](portfolio-1-database-design/) | Database design and modelling | Chen and logical ER diagrams, normalisation to BCNF, a 24-table PostgreSQL schema loaded with 21.9 million rows of synthetic data |
+| [portfolio-2-query-optimisation](portfolio-2-query-optimisation/) | Query processing and optimisation | Execution plans before and after seven indexes and a materialised view, query rewrites, and the cost of the indexes |
+| [portfolio-3-transactions-concurrency](portfolio-3-transactions-concurrency/) | Transactions and concurrency | Commit, rollback and savepoints, isolation anomalies and their fixes, write skew, deadlock, and crash recovery |
+| [portfolio-4-nosql](portfolio-4-nosql/) | NoSQL and advanced data models | The same hospital as MongoDB documents, with validation, indexes, transactions and cross-checks against PostgreSQL |
+| [portfolio-5-distributed-cloud](portfolio-5-distributed-cloud/) | Distributed and cloud databases | A three-member replica set under failure, shard key analysis, two-phase commit, and cloud deployment under the NDPA |
+
+## Running it
+
+The only requirement is Docker Desktop. Copy `.env.example` to `.env`, set a password, and start the containers:
+
+```powershell
+docker compose up -d
+```
+
+This starts PostgreSQL 16 (`hospital-postgres`) and three MongoDB 8.0 servers (`hospital-mongo`, `hospital-mongo-2` and `hospital-mongo-3`). The repository is mounted read-only in each container at `/portfolio`. Each portfolio's README lists the commands to run, and the portfolios build on each other, so run them in order. Portfolio 4 starts the MongoDB replica set and Portfolio 5 adds the other two members.
+
 ## Case study: Tomiwa Hospitals
 
 Tomiwa Hospitals is a simulated private hospital group, used as the single case study for all five portfolio activities in this repository. It is not a real organisation, and every record in the database is synthetic.
